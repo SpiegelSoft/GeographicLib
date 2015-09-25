@@ -1,0 +1,7 @@
+C:\Users\Rob\Documents\GitHub\GeographicLib\GeographicLib\bin\Debug\GeographicLib.XML
+C:\Users\Rob\Documents\GitHub\GeographicLib\GeographicLib\bin\Debug\GeographicLib.dll
+C:\Users\Rob\Documents\GitHub\GeographicLib\GeographicLib\bin\Debug\GeographicLib.pdb
+C:\Users\Rob\Documents\GitHub\GeographicLib\GeographicLib\bin\Debug\FSharp.Core.dll
+C:\Users\Rob\Documents\GitHub\GeographicLib\GeographicLib\bin\Debug\FSharp.Core.xml
+C:\Users\Rob\Documents\GitHub\GeographicLib\GeographicLib\obj\Debug\GeographicLib.dll
+C:\Users\Rob\Documents\GitHub\GeographicLib\GeographicLib\obj\Debug\GeographicLib.pdb
