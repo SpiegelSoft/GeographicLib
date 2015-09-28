@@ -1,5 +1,9 @@
 ﻿// Learn more about F# at http://fsharp.org. See the 'F# Tutorial' project
 // for more guidance on F# programming.
+#load "UnitsOfMeasure.fs"
+#load "Constants.fs"
+#load "MathLib.fs"
+#load "GeodesicCoefficients.fs"
 #load "Analytics.fs"
 
 open GeographicLib

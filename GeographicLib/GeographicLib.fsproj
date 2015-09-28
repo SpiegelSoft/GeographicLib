@@ -41,6 +41,10 @@
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.Portable.FSharp.Targets" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="UnitsOfMeasure.fs" />
+    <Compile Include="Constants.fs" />
+    <Compile Include="MathLib.fs" />
+    <Compile Include="GeodesicCoefficients.fs" />
     <Compile Include="Analytics.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>

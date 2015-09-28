@@ -2,53 +2,6 @@
 
 open System
 
-type LowToHighRatio =
-    struct
-        val Ratio : float
-        new(ratio : float) = { Ratio = if ratio <= 1.0 then ratio else 1.0 / ratio }
-    end
-
-[<Measure>] type rad
-[<Measure>] type deg
-[<Measure>] type km
-[<Measure>] type m
-
-module Constants = 
-    [<Literal>]
-    let WGS84_a = 6378137.0<m>
-    let WGS84_f = LowToHighRatio(1.0 / ( 298257223563.0 / 1000000000.0 ))
-    // The precision of floating point numbers used in %GeographicLib.  1 means
-    // float (single precision); 2 (the default) means double; 3 means long double;
-    // 4 is reserved for quadruple precision.  Nearly all the testing has been
-    // carried out with doubles and that's the recommended configuration.  In order
-    // for long double to be used, GEOGRAPHICLIB_HAVE_LONG_DOUBLE needs to be
-    // defined.  Note that with Microsoft Visual Studio, long double is the same as
-    // double.
-    [<Literal>]
-    let Precision = 2
-
-module MathLib =
-    let atanh(x) = (log(1.0 + x) - log(1.0 - x))/2.0
-    let rec getMachineEpsilon eps = if 1.0 + eps = 1.0 then eps else getMachineEpsilon ((abs eps) / 2.0)
-    let eatanhe(x, es) = if es >= 0.0 then es * atanh(es * x) else -es * atan(es * x)
-    let sq(x : float<'a>) = x * x
-    let minFloat = Double.Epsilon
-    let epsilon = getMachineEpsilon 0.1
-    let epsilonSquared = sq(epsilon)
-    let epsilonToTheFourth = sq(epsilonSquared)
-    let tolerance = sqrt epsilon
-    let tolerance0 = tolerance * epsilon |> sqrt |> sqrt
-    let piOver2 = Math.PI / 2.0
-    let polyval(N, p : float[], x) =
-        let mutable y = if N < 0 then 0.0 else p.[0]
-        let mutable N = N
-        let mutable i = 1
-        while N > 0 do
-            N <- N - 1
-            y <- y * x + p.[i]
-            i <- i + 1
-        y
-
 type EllipticFunction(k2 : float, ?alpha2 : float, ?kp2 : float, ?alphap2 : float) =
     let alpha2 = defaultArg alpha2 0.0
     let kp2 = defaultArg kp2 1.0 - k2
@@ -153,85 +106,6 @@ type Ellipsoid(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     let e11 = EllipticFunction(-e12)
     let au = AlbersEqualArea(a, flattening, 0.0, 1.0, 0.0, 1.0, 1.0)
     static member WGS84 = Ellipsoid(Constants.WGS84_a, Constants.WGS84_f)
-
-module GeodesicCoefficients =
-    let GeodesicOrder =
-        match Constants.Precision with
-        | 2 -> 6
-        | 1 -> 3
-        | 3 -> 7
-        | _ -> 8
-    let nA1 = GeodesicOrder
-    let nC1 = GeodesicOrder
-    let nC1p = GeodesicOrder
-    let nA2 = GeodesicOrder
-    let nC2 = GeodesicOrder
-    let nA3 = GeodesicOrder
-    let nA3x = nA3
-    let nC3 = GeodesicOrder
-    let nC3x = (nC3 * (nC3 - 1)) / 2;
-    let nC4 = GeodesicOrder
-    let nC4x = (nC4 * (nC4 + 1)) / 2;
-    // Size for temporary array
-    // nC = max(max(nC1_, nC1p_, nC2_) + 1, max(nC3_, nC4_))
-    let nC = GeodesicOrder + 1
-    [<Literal>]
-    let maxit1 = 20
-    let A3Coeff =
-        match GeodesicOrder with
-        | 3 -> 
-            [| 
-                -1.0; 4.0; // A3 coeff of eps^2
-                1.0; -1.0; 2.0; // A3 coeff of eps^1
-                1.0; 1.0 // A3 coeff of eps^0
-            |]
-        | 4 -> 
-            [|
-                -1.0; 16.0; // A3 coeff of eps^3
-                -1.0; -2.0; 8.0; // A3 coeff of eps^2
-                1.0; -1.0; 2.0; // A3 coeff of eps^1
-                1.0; 1.0 // A3 coeff of eps^0
-            |]
-        | 5 -> 
-            [|
-                -3.0; 64.0; // A3 coeff of eps^4
-                -3.0; -1.0; 16.0; // A3 coeff of eps^3
-                3.0; -1.0; -2.0; 8.0; // A3 coeff of eps^2
-                1.0; -1.0; 2.0; // A3 coeff of eps^1
-                1.0; 1.0 // A3 coeff of eps^0
-            |]
-        | 6 -> 
-            [|
-                -3.0; 128.0; // A3 coeff of eps^5
-                -2.0; -3.0; 64.0; // A3 coeff of eps^4
-                -1.0; -3.0; -1.0; 16.0; // A3 coeff of eps^3
-                3.0; -1.0; -2.0; 8.0; // A3 coeff of eps^2
-                1.0; -1.0; 2.0; // A3 coeff of eps^1
-                1.0; 1.0 // A3 coeff of eps^0
-            |]
-        | 7 -> 
-            [|
-                -5.0; 256.0; // A3 coeff of eps^6
-                -5.0; -3.0; 128.0; // A3 coeff of eps^5
-                -10.0; -2.0; -3.0; 64.0; // A3 coeff of eps^4
-                5.0; -1.0; -3.0; -1.0; 16.0; // A3 coeff of eps^3
-                3.0; -1.0; -2.0; 8.0; // A3 coeff of eps^2
-                1.0; -1.0; 2.0; // A3 coeff of eps^1
-                1.0; 1.0 // A3 coeff of eps^0
-            |]
-        | 8 -> 
-            [|
-                -25.0; 2048.0; // A3 coeff of eps^7
-                -15.0; -20.0; 1024.0; // A3 coeff of eps^6
-                -5.0; -10.0; -6.0; 256.0; // A3 coeff of eps^5
-                -5.0; -20.0; -4.0; -6.0; 128.0; // A3 coeff of eps^4
-                5.0; -1.0; -3.0; -1.0; 16.0; // A3 coeff of eps^3
-                3.0; -1.0; -2.0; 8.0; // A3 coeff of eps^2
-                1.0; -1.0; 2.0; // A3 coeff of eps^1
-                1.0; 1.0 // A3 coeff of eps^0
-            |]
-        | _ -> raise <| new ArgumentException()
-
 
 //   \brief %Geodesic calculations
 //   
@@ -388,10 +262,18 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     let c2 = (MathLib.sq(a) + MathLib.sq(b) * MathLib.eatanhe(1.0, (if f < 0.0 then -1.0 else 1.0) * sqrt(abs(e2))) / e2) / 2.0
     let etol2 = 0.1 * tol2 / (sqrt(max 0.001 (abs f) * (min 1.0 1.0 - f/2.0) / 2.0))
     let mutable o = 0
-    let A3x = [|0..GeodesicCoefficients.nA3 - 1|] |> Array.rev |> Array.mapi (fun k j ->
-        let m = min (GeodesicCoefficients.nA3 - j - 1) j
-        let value = MathLib.polyval(m, GeodesicCoefficients.A3Coeff.[o..], n) / GeodesicCoefficients.A3Coeff.[o + m + 1]
-        o <- o + m + 2
-        value)
+    let generatePolynomial nCoeff (coeff : float[]) =
+        o <- 0
+        [|0..nCoeff - 1|] |> Array.rev |> Array.mapi (fun k j ->
+            let m = min (nCoeff - j - 1) j
+            let value = MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
+            o <- o + m + 2
+            value)
+        
+    let A3x = generatePolynomial GeodesicCoefficients.nA3 GeodesicCoefficients.A3Coeff
+    let C3x = generatePolynomial GeodesicCoefficients.nC3 GeodesicCoefficients.C3Coeff
+    let C4x = generatePolynomial GeodesicCoefficients.nC4 GeodesicCoefficients.C4Coeff
 
-    member this.A3 with get() = A3x
+    member this.A3 with get() = A3x    
+    member this.C3 with get() = C3x    
+    member this.C4 with get() = C4x
