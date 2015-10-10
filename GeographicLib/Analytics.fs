@@ -2,6 +2,11 @@
 
 open System
 
+[<Struct>]
+type GeodesicLocation(latitude : float<deg>, longitude : float<deg>) =
+    member this.Latitude = latitude
+    member this.Longitude = longitude
+
 type EllipticFunction(k2 : float, ?alpha2 : float, ?kp2 : float, ?alphap2 : float) =
     let alpha2 = defaultArg alpha2 0.0
     let kp2 = defaultArg kp2 1.0 - k2
@@ -273,6 +278,11 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     let A3x = generatePolynomial GeodesicCoefficients.nA3 GeodesicCoefficients.A3Coeff
     let C3x = generatePolynomial GeodesicCoefficients.nC3 GeodesicCoefficients.C3Coeff
     let C4x = generatePolynomial GeodesicCoefficients.nC4 GeodesicCoefficients.C4Coeff
+
+    let GenInverse(location : GeodesicLocation) =
+        
+
+    static member WGS84 = Geodesic(Constants.WGS84_a, Constants.WGS84_f)
 
     member this.A3 with get() = A3x    
     member this.C3 with get() = C3x    
