@@ -5,7 +5,7 @@ open System
 module MathLib =
     [<Struct>]
     type ValueAndError(value : float<deg>, error : float<deg>) =
-        member this.Value = sum
+        member this.Value = value
         member this.Error = error
 
     let liftToKeepUnits f (arg : float<'u>) : float<'u> =

@@ -279,7 +279,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     let C3x = generatePolynomial GeodesicCoefficients.nC3 GeodesicCoefficients.C3Coeff
     let C4x = generatePolynomial GeodesicCoefficients.nC4 GeodesicCoefficients.C4Coeff
 
-    let GenInverse(location : GeodesicLocation) =
+//    let GenInverse(location : GeodesicLocation) =
         
 
     static member WGS84 = Geodesic(Constants.WGS84_a, Constants.WGS84_f)
