@@ -4,7 +4,7 @@ open System
 
 [<Struct>]
 type GeodesicLocation(latitude : float<deg>, longitude : float<deg>) =
-    member this.Latitude = latitude
+    member this.Latitude = if abs latitude > 90.0<deg> then Double.NaN |> LanguagePrimitives.FloatWithMeasure else latitude
     member this.Longitude = longitude
 
 type EllipticFunction(k2 : float, ?alpha2 : float, ?kp2 : float, ?alphap2 : float) =
@@ -279,8 +279,41 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     let C3x = generatePolynomial GeodesicCoefficients.nC3 GeodesicCoefficients.C3Coeff
     let C4x = generatePolynomial GeodesicCoefficients.nC4 GeodesicCoefficients.C4Coeff
 
-//    let GenInverse(location : GeodesicLocation) =
-        
+    let GenInverse (location1 : GeodesicLocation) (location2 : GeodesicLocation) =
+        // Compute longitude difference (AngDiff does this carefully).  Result is
+        // in [-180, 180] but -180 is only for west-going geodesics.  180 is for
+        // east-going and meridional geodesics.
+        // If very close to being on the same half-meridian, then make it so.
+        let mutable lon12 = MathLib.angDiff(location1.Longitude, location2.Longitude) |> MathLib.angRound
+        let mutable lonsign = if lon12 >= 0.0<deg> then 1.0 else -1.0
+        lon12 <- lon12 * lonsign;
+        // If really close to the equator, treat as on equator.
+        let mutable lat1 = MathLib.angRound(location1.Latitude)
+        let mutable lat2 = MathLib.angRound(location2.Latitude)
+        // Swap points so that point with higher (abs) latitude is point 1
+        let swapp = if abs(lat1) >= abs(lat2) then 1.0 else -1.0
+        if swapp < 0.0 then
+            let (l2, l1) = (lat1, lat2)
+            lat1 <- l1
+            lat2 <- l2
+        // Make lat1 <= 0
+        let latsign = if lat1 < 0.0<deg> then 1.0 else -1.0;
+        lat1 <- lat1 * latsign;
+        lat2 <- lat2 * latsign;
+        // Now we have
+        //
+        //     0 <= lon12 <= 180
+        //     -90 <= lat1 <= 0
+        //     lat1 <= lat2 <= -lat1
+        //
+        // longsign, swapp, latsign register the transformation to bring the
+        // coordinates to this canonical form.  In all cases, 1 means no change was
+        // made.  We make these transformations so that there are few cases to
+        // check, e.g., on verifying quadrants in atan2.  In addition, this
+        // enforces some symmetries in the results returned.
+        let mutable sbet1, cbet1 = MathLib.sincos(lat1)
+        sbet1 <- sbet1 * f1
+        0.0
 
     static member WGS84 = Geodesic(Constants.WGS84_a, Constants.WGS84_f)
 

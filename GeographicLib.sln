@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "GeographicLib", "GeographicLib\GeographicLib.fsproj", "{8507F22A-A46D-4596-B347-EEEF90E398CC}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "GeographicLib.Tests", "GeographicLib.Tests\GeographicLib.Tests.fsproj", "{A9675353-5328-4041-8663-C559BDA6529B}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "GeographicLib.Tests", "GeographicLib.Tests\GeographicLib.Tests.fsproj", "{C3ABBB2D-446C-4FEA-9A0F-095EC2F10275}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "GeographicLib", "GeographicLib\GeographicLib.fsproj", "{A512256D-984C-4CC3-998A-C6D060BB3750}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,14 +13,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{8507F22A-A46D-4596-B347-EEEF90E398CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8507F22A-A46D-4596-B347-EEEF90E398CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8507F22A-A46D-4596-B347-EEEF90E398CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8507F22A-A46D-4596-B347-EEEF90E398CC}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C3ABBB2D-446C-4FEA-9A0F-095EC2F10275}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C3ABBB2D-446C-4FEA-9A0F-095EC2F10275}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C3ABBB2D-446C-4FEA-9A0F-095EC2F10275}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C3ABBB2D-446C-4FEA-9A0F-095EC2F10275}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A9675353-5328-4041-8663-C559BDA6529B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A9675353-5328-4041-8663-C559BDA6529B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A9675353-5328-4041-8663-C559BDA6529B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A9675353-5328-4041-8663-C559BDA6529B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A512256D-984C-4CC3-998A-C6D060BB3750}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A512256D-984C-4CC3-998A-C6D060BB3750}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A512256D-984C-4CC3-998A-C6D060BB3750}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A512256D-984C-4CC3-998A-C6D060BB3750}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

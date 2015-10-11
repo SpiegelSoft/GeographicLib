@@ -3,6 +3,13 @@
 open System
 
 module MathLib =
+    let degreesPerRadian = 1.0<deg/rad> * 180.0/Math.PI
+    let radiansPerDegree = 1.0<rad/deg> * Math.PI/180.0
+    let radians (x : float<deg>) = x * radiansPerDegree
+    let degrees (x : float<deg>) = x * degreesPerRadian
+    let sin (x : float<deg>) = x |> radians |> float |> Math.Sin
+    let cos (x : float<deg>) = x |> radians |> float |> Math.Cos
+    
     [<Struct>]
     type ValueAndError(value : float<deg>, error : float<deg>) =
         member this.Value = value
@@ -12,14 +19,14 @@ module MathLib =
         float arg |> f |> LanguagePrimitives.FloatWithMeasure
     let liftToKeepUnits2 f (arg1 : float<'u>, arg2 : float<'u>) : float<'u> =
         (float arg1, float arg2) |> f |> LanguagePrimitives.FloatWithMeasure
-    let remainder = Math.IEEERemainder |> liftToKeepUnits2    
+    let remainder = Math.IEEERemainder |> liftToKeepUnits2
     let sum(u : float<deg>, v : float<deg>) =
-      let s = u + v;
-      let mutable up = s - v;
-      let mutable vpp = s - up;
-      up <- up - u;
-      vpp <- vpp - v;
-      new ValueAndError(s, -(up + vpp))
+        let s = u + v;
+        let mutable up = s - v;
+        let mutable vpp = s - up;
+        up <- up - u;
+        vpp <- vpp - v;
+        new ValueAndError(s, -(up + vpp))
 
     let atanh(x) = (log(1.0 + x) - log(1.0 - x))/2.0
     let rec getMachineEpsilon eps = if 1.0 + eps = 1.0 then eps else getMachineEpsilon ((abs eps) / 2.0)
@@ -41,14 +48,14 @@ module MathLib =
             y <- y * x + p.[i]
             i <- i + 1
         y
-    let z = 1.0/16.0
-    let angRound(x) =
-        let mutable y = abs x
+    let z = 1.0<deg>/16.0
+    let angRound(x : float<deg>) =
+        let mutable y = abs(x)
         y <- if y < z then z - (z - y) else y
         match Constants.Precision with
-        | 4 -> if x <= 0.0 then 0.0 - y else y
-        | 5 -> if x < 0.0 then 0.0 - y else y
-        | _ -> if x < 0.0 then 0.0 - y else y
+        | 4 -> if x <= 0.0<deg> then 0.0<deg> - y else y
+        | 5 -> if x < 0.0<deg> then 0.0<deg> - y else y
+        | _ -> if x < 0.0<deg> then 0.0<deg> - y else y
 
     let angNormalise(x : float<deg>) =
         let reverse180 angle = if angle = 180.0<deg> then -180.0<deg> else angle 
@@ -56,7 +63,26 @@ module MathLib =
     let angDiff(x : float<deg>, y : float<deg>) =
         let differenceOfRemainders = sum(remainder(x, 360.0<deg>), remainder(-y, 360.0<deg>))
         let normalisedDiff = angNormalise differenceOfRemainders.Value
-        (if normalisedDiff = 180.0<deg> && differenceOfRemainders.Error < 0.0<deg> then -180.0<deg> else normalisedDiff) - differenceOfRemainders.Error
+        (if normalisedDiff = 180.0<deg> & differenceOfRemainders.Error < 0.0<deg> then -180.0<deg> else normalisedDiff) - differenceOfRemainders.Error
 
-
-
+    // Evaluate the sine and cosine function with the argument in degrees
+    //
+    // @tparam T the type of the arguments.
+    // @param[in] x in degrees.
+    // @param[out] sinx sin(<i>x</i>).
+    // @param[out] cosx cos(<i>x</i>).
+    //
+    // The results obey exactly the elementary properties of the trigonometric
+    // functions, e.g., sin 9&deg; = cos 81&deg; = &minus; sin 123456789&deg;.
+    //*********************************************************************/
+    let sincos(x : float<deg>) =
+        // In order to minimize round-off errors, this function exactly reduces
+        // the argument to the range [-45, 45] before converting it to radians.
+        let mutable r = remainder(x, 360.0<deg>)
+        let q = Math.Floor(r / 90.0<deg> + 0.5) |> int
+        r <- r - (90.0<deg> * float q)
+        match (q &&& 3) with
+        | 0 -> (sin r, cos r)
+        | 1 -> (cos r, -sin r)
+        | 2 -> (-sin r, -cos r)
+        | _ -> (-cos r, sin r)
