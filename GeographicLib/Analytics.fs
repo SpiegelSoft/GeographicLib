@@ -300,6 +300,15 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         let latsign = if lat1 < 0.0<deg> then 1.0 else -1.0;
         lat1 <- lat1 * latsign;
         lat2 <- lat2 * latsign;
+
+        let normalisedSinCos lat =
+            let mutable sbet, cbet = MathLib.sincos lat
+            sbet <- sbet * f1
+            let norm = MathLib.norm (sbet, cbet)
+            sbet <- fst norm
+            cbet <- snd norm
+            cbet <- max tiny cbet
+            (sbet, cbet)
         // Now we have
         //
         //     0 <= lon12 <= 180
@@ -311,8 +320,39 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         // made.  We make these transformations so that there are few cases to
         // check, e.g., on verifying quadrants in atan2.  In addition, this
         // enforces some symmetries in the results returned.
-        let mutable sbet1, cbet1 = MathLib.sincos(lat1)
-        sbet1 <- sbet1 * f1
+        let mutable sbet1, cbet1 = normalisedSinCos lat1
+        let mutable sbet2, cbet2 = normalisedSinCos lat2
+
+        // If cbet1 < -sbet1, then cbet2 - cbet1 is a sensitive measure of the
+        // |bet1| - |bet2|.  Alternatively (cbet1 >= -sbet1), abs(sbet2) + sbet1 is
+        // a better measure.  This logic is used in assigning calp2 in Lambda12.
+        // Sometimes these quantities vanish and in that case we force bet2 = +/-
+        // bet1 exactly.  An example where is is necessary is the inverse problem
+        // 48.522876735459 0 -48.52287673545898293 179.599720456223079643
+        // which failed with Visual Studio 10 (Release and Debug)
+        if cbet1 < -sbet1 then
+            if cbet2 = cbet1 then sbet2 <- if sbet2 < 0.0 then sbet1 else -sbet1
+        else
+            if -sbet1 = abs sbet2 then cbet2 <- cbet1
+
+        let dn1 = sqrt (1.0 + ep2 * MathLib.sq(sbet1))
+        let dn2 = sqrt (1.0 + ep2 * MathLib.sq(sbet2))
+
+        let lam12 = MathLib.radians lon12
+        let slam12, clam12 = MathLib.sincos lon12
+        let mutable a12, sig12, calp1, salp1, calp2, salp2 = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+
+        let mutable meridian = (lat1 = -90.0<deg> || slam12 = 0.0)
+        if meridian then
+            // Endpoints are on a single full meridian, so the geodesic might lie on
+            // a meridian.
+            calp1 <- clam12 
+            salp1 <- slam12; // Head to the target longitude
+            calp2 <- 1.0
+            salp2 <- 0.0  // At the target we're heading north
+            let ssig1, csig1 = sbet1, calp1 * cbet1
+            let ssig2, csig2 = sbet2, calp2 * cbet2
+            sig12 <- Math.Atan2(max (csig1 * ssig2 - ssig1 * csig2) 0.0, csig1 * csig2 + ssig1 * ssig2)
         0.0
 
     static member WGS84 = Geodesic(Constants.WGS84_a, Constants.WGS84_f)

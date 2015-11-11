@@ -1,5 +1,6 @@
 ﻿namespace GeographicLib
 
+open System.Runtime.InteropServices
 open System
 
 module MathLib =
@@ -9,12 +10,21 @@ module MathLib =
     let degrees (x : float<deg>) = x * degreesPerRadian
     let sin (x : float<deg>) = x |> radians |> float |> Math.Sin
     let cos (x : float<deg>) = x |> radians |> float |> Math.Cos
-    
+    let hypot (x, y) =
+        let mutable x = abs x
+        let y = abs y
+        let mutable t = min x y
+        x <- max x y
+        t <- t / x
+        x * sqrt (1.0 + t * t)
+    let norm (x, y) =
+        let h = hypot (x, y)
+        (x / h, y / h)
+
     [<Struct>]
     type ValueAndError(value : float<deg>, error : float<deg>) =
         member this.Value = value
         member this.Error = error
-
     let liftToKeepUnits f (arg : float<'u>) : float<'u> =
         float arg |> f |> LanguagePrimitives.FloatWithMeasure
     let liftToKeepUnits2 f (arg1 : float<'u>, arg2 : float<'u>) : float<'u> =

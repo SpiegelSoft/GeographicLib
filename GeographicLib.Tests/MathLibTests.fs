@@ -9,6 +9,14 @@ type ``Trig functions with degree arguments``()=
 
     static member Angles0To360 = [| 0.0<deg>; 30.0<deg>; 45.0<deg>; 60.0<deg>; 90.0<deg>; 120.0<deg>; 135.0<deg>; 180.0<deg>; 210.0<deg>; 225.0<deg>; 240.0<deg>; 270.0<deg>; 300.0<deg>; 315.0<deg>; 330.0<deg>; 360.0<deg> |] |> Seq.map (fun a -> [| a :> Object |])
 
+    [<Theory>]
+    [<InlineData(3.0, 4.0, 5.0)>]
+    [<InlineData(5.0, 12.0, 13.0)>]
+    [<InlineData(4.0, 3.0, 5.0)>]
+    [<InlineData(12.0, 5.0, 13.0)>]
+    member test.``Pythagorean triples``(x, y, h) =
+        Assert.Equal(MathLib.hypot(x, y), h)
+
     [<Fact>]
     member test.``(x + 1)(x + 2)``() =
         Assert.Equal(MathLib.polyval(2, [|2.0; 3.0; 1.0|], 1.0), 6.0)
