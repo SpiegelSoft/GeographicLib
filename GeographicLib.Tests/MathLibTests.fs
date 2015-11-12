@@ -14,6 +14,8 @@ type ``Trig functions with degree arguments``()=
     [<InlineData(5.0, 12.0, 13.0)>]
     [<InlineData(4.0, 3.0, 5.0)>]
     [<InlineData(12.0, 5.0, 13.0)>]
+    [<InlineData(15.0, 8.0, 17.0)>]
+    [<InlineData(8.0, 15.0, 17.0)>]
     member test.``Pythagorean triples``(x, y, h) =
         Assert.Equal(MathLib.hypot(x, y), h)
 

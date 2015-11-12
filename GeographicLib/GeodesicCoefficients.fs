@@ -25,6 +25,132 @@ module GeodesicCoefficients =
     let nC = GeodesicOrder + 1
     [<Literal>]
     let maxit1 = 20
+    
+    let Fourier n (coeff : float[]) eps =
+        let eps2 = sqrt eps
+        let mutable d = eps
+        let mutable o = 0
+        [|1..n|] |> Array.map (fun l ->
+            let m = (n - l) / 2
+            let v = d * MathLib.polyval(m, coeff.[o..], eps2) / coeff.[o + m + 1]
+            o <- o + m + 2
+            d <- d * eps
+            v) |> Array.append [|0.0|]
+
+    // The coefficients C1[l] in the Fourier expansion of B1
+    let C1Fourier eps =
+        let coeff = 
+            match GeodesicOrder with
+            | 3 ->
+                [|
+                    3.0; -8.0; 16.0; // C1[1]/eps^1: polynomial in eps2 of order 1
+                    -1.0; 16.0; // C1[2]/eps^2: polynomial in eps2 of order 0
+                    -1.0; 48.0 // C1[3]/eps^3: polynomial in eps2 of order 0
+                |]
+            | 4 ->
+                [|
+                    3.0; -8.0; 16.0; // C1[1]/eps^1: polynomial in eps2 of order 1
+                    1.0; -2.0; 32.0; // C1[2]/eps^2: polynomial in eps2 of order 1
+                    -1.0; 48.0; // C1[3]/eps^3: polynomial in eps2 of order 0
+                    -5.0; 512.0 // C1[4]/eps^4: polynomial in eps2 of order 0
+                |]
+            | 5 -> 
+                [|
+                    -1.0; 6.0; -16.0; 32.0; // C1[1]/eps^1: polynomial in eps2 of order 2
+                    1.0; -2.0; 32.0; // C1[2]/eps^2: polynomial in eps2 of order 1
+                    9.0; -16.0; 768.0; // C1[3]/eps^3: polynomial in eps2 of order 1
+                    -5.0; 512.0; // C1[4]/eps^4: polynomial in eps2 of order 0
+                    -7.0; 1280.0 // C1[5]/eps^5: polynomial in eps2 of order 0
+                |]
+            | 6 -> 
+                [|
+                    -1.0; 6.0; -16.0; 32.0; // C1[1]/eps^1: polynomial in eps2 of order 2
+                    -9.0; 64.0; -128.0; 2048.0; // C1[2]/eps^2: polynomial in eps2 of order 2
+                    9.0; -16.0; 768.0; // C1[3]/eps^3: polynomial in eps2 of order 1
+                    3.0; -5.0; 512.0; // C1[4]/eps^4: polynomial in eps2 of order 1
+                    -7.0; 1280.0; // C1[5]/eps^5: polynomial in eps2 of order 0
+                    -7.0; 2048.0 // C1[6]/eps^6: polynomial in eps2 of order 0
+                |]
+            | 7 -> 
+                [|
+                    19.0; -64.0; 384.0; -1024.0; 2048.0; // C1[1]/eps^1: polynomial in eps2 of order 3
+                    -9.0; 64.0; -128.0; 2048.0; // C1[2]/eps^2: polynomial in eps2 of order 2
+                    -9.0; 72.0; -128.0; 6144.0; // C1[3]/eps^3: polynomial in eps2 of order 2
+                    3.0; -5.0; 512.0; // C1[4]/eps^4: polynomial in eps2 of order 1
+                    35.0; -56.0; 10240.0; // C1[5]/eps^5: polynomial in eps2 of order 1
+                    -7.0; 2048.0; // C1[6]/eps^6: polynomial in eps2 of order 0
+                    -33.0; 14336.0 // C1[7]/eps^7: polynomial in eps2 of order 0
+                |]
+            | 8 -> 
+                [|
+                    19.0; -64.0; 384.0; -1024.0; 2048.0; // C1[1]/eps^1: polynomial in eps2 of order 3
+                    7.0; -18.0; 128.0; -256.0; 4096.0; // C1[2]/eps^2: polynomial in eps2 of order 3
+                    -9.0; 72.0; -128.0; 6144.0; // C1[3]/eps^3: polynomial in eps2 of order 2
+                    -11.0; 96.0; -160.0; 16384.0; // C1[4]/eps^4: polynomial in eps2 of order 2
+                    35.0; -56.0; 10240.0; // C1[5]/eps^5: polynomial in eps2 of order 1
+                    9.0; -14.0; 4096.0; // C1[6]/eps^6: polynomial in eps2 of order 1
+                    -33.0; 14336.0; // C1[7]/eps^7: polynomial in eps2 of order 0
+                    -429.0; 262144.0 // C1[8]/eps^8: polynomial in eps2 of order 0
+                |]
+            | _ -> raise <| new ArgumentException()
+        Fourier nC1 coeff eps
+
+    let C2Fourier eps =
+        let coeff = 
+            match GeodesicOrder with
+            | 3 ->
+                [|
+                    1.0; 8.0; 16.0; // C2[1]/eps^1: polynomial in eps2 of order 1
+                    3.0; 16.0; // C2[2]/eps^2: polynomial in eps2 of order 0
+                    5.0; 48.0 // C2[3]/eps^3: polynomial in eps2 of order 0
+                |]
+            | 4 ->
+                [|
+                    1.0; 8.0; 16.0; // C2[1]/eps^1.0: polynomial in eps2 of order 1
+                    1.0; 6.0; 32.0; // C2[2]/eps^2.0: polynomial in eps2 of order 1
+                    5.0; 48.0; // C2[3]/eps^3.0: polynomial in eps2 of order 0
+                    35.0; 512.0 // C2[4]/eps^4.0: polynomial in eps2 of order 0
+                |]
+            | 5 -> 
+                [|
+                    1.0; 2.0; 16.0; 32.0; // C2[1]/eps^1: polynomial in eps2 of order 2
+                    1.0; 6.0; 32.0; // C2[2]/eps^2: polynomial in eps2 of order 1
+                    15.0; 80.0; 768.0; // C2[3]/eps^3: polynomial in eps2 of order 1
+                    35.0; 512.0; // C2[4]/eps^4: polynomial in eps2 of order 0
+                    63.0; 1280.0 // C2[5]/eps^5: polynomial in eps2 of order 0
+                |]
+            | 6 -> 
+                [|
+                    1.0; 2.0; 16.0; 32.0; // C2[1]/eps^1: polynomial in eps2 of order 2
+                    35.0; 64.0; 384.0; 2048.0; // C2[2]/eps^2: polynomial in eps2 of order 2
+                    15.0; 80.0; 768.0; // C2[3]/eps^3: polynomial in eps2 of order 1
+                    7.0; 35.0; 512.0; // C2[4]/eps^4: polynomial in eps2 of order 1
+                    63.0; 1280.0; // C2[5]/eps^5: polynomial in eps2 of order 0
+                    77.0; 2048.0 // C2[6]/eps^6: polynomial in eps2 of order 0
+                |]
+            | 7 -> 
+                [|
+                    41.0; 64.0; 128.0; 1024.0; 2048.0; // C2[1]/eps^1: polynomial in eps2 of order 3
+                    35.0; 64.0; 384.0; 2048.0; // C2[2]/eps^2: polynomial in eps2 of order 2
+                    69.0; 120.0; 640.0; 6144.0; // C2[3]/eps^3: polynomial in eps2 of order 2
+                    7.0; 35.0; 512.0; // C2[4]/eps^4: polynomial in eps2 of order 1
+                    105.0; 504.0; 10240.0; // C2[5]/eps^5: polynomial in eps2 of order 1
+                    77.0; 2048.0; // C2[6]/eps^6: polynomial in eps2 of order 0
+                    429.0; 14336.0 // C2[7]/eps^7: polynomial in eps2 of order 0
+                |]
+            | 8 -> 
+                [|
+                    41.0; 64.0; 128.0; 1024.0; 2048.0; // C2[1]/eps^1: polynomial in eps2 of order 3
+                    47.0; 70.0; 128.0; 768.0; 4096.0; // C2[2]/eps^2: polynomial in eps2 of order 3
+                    69.0; 120.0; 640.0; 6144.0; // C2[3]/eps^3: polynomial in eps2 of order 2
+                    133.0; 224.0; 1120.0; 16384.0; // C2[4]/eps^4: polynomial in eps2 of order 2
+                    105.0; 504.0; 10240.0; // C2[5]/eps^5: polynomial in eps2 of order 1
+                    33.0; 154.0; 4096.0; // C2[6]/eps^6: polynomial in eps2 of order 1
+                    429.0; 14336.0; // C2[7]/eps^7: polynomial in eps2 of order 0
+                    6435.0; 262144.0 // C2[8]/eps^8: polynomial in eps2 of order 0
+                |]
+            | _ -> raise <| new ArgumentException()
+        Fourier nC2 coeff eps
 
     let C4Coeff =
         match GeodesicOrder with
