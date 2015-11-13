@@ -37,6 +37,58 @@ module GeodesicCoefficients =
             d <- d * eps
             v) |> Array.append [|0.0|]
 
+    // The scale factor A2-1 = mean value of (d/dsigma)I2 - 1
+    let A2m1f eps =
+        let coeff =
+            match GeodesicOrder / 2 with
+            | 1 ->
+                [|
+                    -3.0; 0.0; 4.0 // (eps+1)*A2-1: polynomial in eps2 of order 1
+                |]
+            | 2 ->
+                [|
+                    -7.0; -48.0; 0.0; 64.0 // (eps+1)*A2-1: polynomial in eps2 of order 2
+                |]
+            | 3 ->
+                [|
+                    -11.0; -28.0; -192.0; 0.0; 256.0 // (eps+1)*A2-1: polynomial in eps2 of order 3
+                |]
+            | 4 ->
+                [|
+                    -375.0; -704.0; -1792.0; -12288.0; 0.0; 16384.0 // (eps+1)*A2-1, polynomial in eps2 of order 4
+                |]
+            | _ -> raise <| new ArgumentException()
+
+        let m = nA2/2
+        let t = MathLib.polyval(m, coeff, MathLib.sq(eps)) / coeff.[m + 1]
+        (t - eps) / (1.0 + eps)
+
+    // The scale factor A1-1 = mean value of (d/dsigma)I1 - 1
+    let A1m1f eps =
+        let coeff =
+            match GeodesicOrder / 2 with
+            | 1 ->
+                [|
+                    1.0; 0.0; 4.0 // (1-eps)*A1-1: polynomial in eps2 of order 1
+                |]
+            | 2 ->
+                [|
+                    1.0; 16.0; 0.0; 64.0 // (1-eps)*A1-1: polynomial in eps2 of order 2
+                |]
+            | 3 ->
+                [|
+                    1.0; 4.0; 64.0; 0.0; 256.0 // (1-eps)*A1-1: polynomial in eps2 of order 3
+                |]
+            | 4 ->
+                [|
+                    25.0; 64.0; 256.0; 4096.0; 0.0; 16384.0 // (1-eps)*A1-1: polynomial in eps2 of order 4
+                |]
+            | _ -> raise <| new ArgumentException()
+
+        let m = nA1 / 2
+        let t = MathLib.polyval(m, coeff, MathLib.sq(eps)) / coeff.[m + 1]
+        (t + eps) / (1.0 - eps)
+
     // The coefficients C1[l] in the Fourier expansion of B1
     let C1Fourier eps =
         let coeff = 

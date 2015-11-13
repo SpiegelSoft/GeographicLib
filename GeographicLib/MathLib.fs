@@ -73,7 +73,7 @@ module MathLib =
     let angDiff(x : float<deg>, y : float<deg>) =
         let differenceOfRemainders = sum(remainder(x, 360.0<deg>), remainder(-y, 360.0<deg>))
         let normalisedDiff = angNormalise differenceOfRemainders.Value
-        (if normalisedDiff = 180.0<deg> & differenceOfRemainders.Error < 0.0<deg> then -180.0<deg> else normalisedDiff) - differenceOfRemainders.Error
+        (if normalisedDiff = 180.0<deg> && differenceOfRemainders.Error < 0.0<deg> then -180.0<deg> else normalisedDiff) - differenceOfRemainders.Error
 
     // Evaluate the sine and cosine function with the argument in degrees
     //
@@ -96,3 +96,27 @@ module MathLib =
         | 1 -> (cos r, -sin r)
         | 2 -> (-sin r, -cos r)
         | _ -> (-cos r, sin r)
+
+    let sinCosSeries(sinp, sinx, cosx, (c : float[]), n) =
+        // Evaluate
+        // y = sinp ? sum(c[i] * sin(2*i * x), i, 1, n) : sum(c[i] * cos((2*i+1) * x), i, 0, n-1)
+        // using Clenshaw summation.  N.B. c[0] is unused for sin series
+        // Approx operation count = (n + 5) mult and (2 * n + 2) add
+        let currentIndex = ref (n + (if sinp then 1 else 0))
+        let ar = 2.0 * (cosx - sinx) * (cosx + sinx) // 2 * cos(2 * x)
+        let mutable y0 = 0.0
+        let mutable y1 = 0.0
+        if n &&& 1 > 0 then
+            decr currentIndex
+            y0 <- c.[currentIndex.Value]
+        let step = ref (currentIndex.Value/2)
+        while step.Value > 0 do
+            decr step
+            decr currentIndex
+            y1 <- ar * y0 - y1 + c.[currentIndex.Value]
+            decr currentIndex
+            y0 <- ar * y1 - y0 + c.[currentIndex.Value]
+        if sinp then 
+            2.0 * sinx * cosx * y0 // sin(2 * x) * y0
+        else
+            cosx * (y0 - y1)

@@ -276,7 +276,7 @@ type Mask =
 //   <a href="GeodSolve.1.html">GeodSolve</a> is a command-line utility
 //   providing access to the functionality of Geodesic and GeodesicLine.
 type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
-    
+ 
     let tiny = sqrt MathLib.minFloat
     let tol0 = MathLib.epsilon
     let tol1 = 200.0 * tol0
@@ -305,9 +305,47 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     let C3x = generatePolynomial GeodesicCoefficients.nC3 GeodesicCoefficients.C3Coeff
     let C4x = generatePolynomial GeodesicCoefficients.nC4 GeodesicCoefficients.C4Coeff
 
-    let Lengths (eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2) outMask (s12b : float<m> byref, m12b : float<m> byref, m0 : float<m> byref, gs12 : float byref, gs21 : float byref) =
-        let outMask = outMask &&& PermissionFlags.OutMask
-        0
+    let Lengths (eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2) outMask (s12b : float byref, m12b : float byref, m0 : float byref, gs12 : float byref, gs21 : float byref) =
+        let outMask = outMask &&& int PermissionFlags.OutMask
+        let mutable m0x = 0.0
+        let mutable J12 = 0.0 
+        let mutable A1 = 0.0
+        let mutable A2 = 0.0
+        let mutable Ca = [||]
+        let mutable Cb = [||]
+        if outMask &&& int (Mask.Distance ||| Mask.ReducedLength ||| Mask.GeodesicScale) > 0 then
+            Ca <- GeodesicCoefficients.C1Fourier eps
+            let mutable Cb = [||]
+            A1 <- GeodesicCoefficients.A1m1f(eps)
+            if outMask &&& int (Mask.ReducedLength ||| Mask.GeodesicScale) > 0 then
+                A2 <- GeodesicCoefficients.A2m1f(eps);
+                Cb <- GeodesicCoefficients.C2Fourier eps;
+                m0x <- A1 - A2;
+                A2 <- 1.0 + A2;
+            A1 <- 1.0 + A1;
+
+        if outMask &&& int (Mask.Distance) > 0 then
+            let B1 = MathLib.sinCosSeries(true, ssig2, csig2, Ca, GeodesicCoefficients.nC1) - MathLib.sinCosSeries(true, ssig1, csig1, Ca, GeodesicCoefficients.nC1)
+            s12b <- A1 * (sig12 + B1)
+            if outMask &&& int (Mask.ReducedLength ||| Mask.GeodesicScale) > 0 then
+                let B2 = MathLib.sinCosSeries(true, ssig2, csig2, Cb, GeodesicCoefficients.nC2) - MathLib.sinCosSeries(true, ssig1, csig1, Cb, GeodesicCoefficients.nC2)
+                J12 <- m0x * sig12 + (A1 * B1) - (A2 * B2)
+        else if outMask &&& int (Mask.ReducedLength ||| Mask.GeodesicScale) > 0 then
+            for l in 1..GeodesicCoefficients.nC2 do
+                Cb.[l] <- A1 * Ca.[l] - A2 * Cb.[l]
+            J12 <- m0x * sig12 + MathLib.sinCosSeries(true, ssig2, csig2, Cb, GeodesicCoefficients.nC2) - MathLib.sinCosSeries(true, ssig1, csig1, Cb, GeodesicCoefficients.nC2)
+
+        if outMask &&& int (Mask.ReducedLength) > 0 then
+            m0 <- m0x
+            // Add parens around (csig1 * ssig2) and (ssig1 * csig2) to ensure
+            // accurate cancellation in the case of coincident points.
+            m12b <- dn2 * (csig1 * ssig2) - dn1 * (ssig1 * csig2) - csig1 * csig2 * J12
+
+        if outMask &&& int (Mask.GeodesicScale) > 0 then
+            let csig12 = csig1 * csig2 + ssig1 * ssig2
+            let t = ep2 * (cbet1 - cbet2) * (cbet1 + cbet2) / (dn1 + dn2)
+            gs12 <- csig12 + (t * ssig2 - csig2 * J12) * ssig1 / dn1
+            gs21 <- csig12 - (t * ssig1 - csig1 * J12) * ssig2 / dn2
 
     let GenInverse (location1 : GeodesicLocation, location2 : GeodesicLocation) outMask (s12 : float<m> byref, azi1 : float<deg> byref, azi2 : float<deg> byref, m12 : float<m> byref, gs12 : float byref, gs21 : float byref, ga12 : float<m^2> byref) =
         let outMask = outMask &&& PermissionFlags.OutMask

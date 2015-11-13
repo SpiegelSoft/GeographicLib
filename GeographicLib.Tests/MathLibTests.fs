@@ -59,3 +59,27 @@ type ``Trig functions with degree arguments``()=
         let sinx, cosx = MathLib.sincos(x)
         Assert.Equal(sinx, expectedsin, 15)
         Assert.Equal(cosx, expectedcos, 15)
+
+    [<Theory>]
+    [<InlineData(0.0<deg>)>]
+    [<InlineData(30.0<deg>)>]
+    [<InlineData(60.0<deg>)>]
+    [<InlineData(90.0<deg>)>]
+    [<InlineData(120.0<deg>)>]
+    [<InlineData(150.0<deg>)>]
+    [<InlineData(180.0<deg>)>]
+    [<InlineData(210.0<deg>)>]
+    [<InlineData(240.0<deg>)>]
+    [<InlineData(270.0<deg>)>]
+    [<InlineData(300.0<deg>)>]
+    [<InlineData(330.0<deg>)>]
+    [<InlineData(360.0<deg>)>]
+    member test.``sinCosSeries for simple values of c``(x) =
+        let sinx, cosx = MathLib.sincos(x)
+        let c = [|1.0; 1.0; 1.0; 1.0; 1.0|]
+        let expectedSinSeries = (MathLib.sin (2.0*x) + MathLib.sin (4.0*x) + MathLib.sin (6.0*x) + MathLib.sin (8.0*x)) * 1.0<m>
+        let expectedCosSeries = (MathLib.cos (1.0*x) + MathLib.cos (3.0*x) + MathLib.cos (5.0*x) + MathLib.cos (7.0*x)) * 1.0<m>
+        let actualSinSeries = MathLib.sinCosSeries (true, sinx, cosx, c, 4)
+        let actualCosSeries = MathLib.sinCosSeries (false, sinx, cosx, c, 4)
+        Assert.Equal(actualSinSeries |> float, expectedSinSeries |> float, 14)
+        Assert.Equal(actualCosSeries |> float, expectedCosSeries |> float, 14)
