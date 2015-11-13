@@ -112,6 +112,31 @@ type Ellipsoid(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     let au = AlbersEqualArea(a, flattening, 0.0, 1.0, 0.0, 1.0, 1.0)
     static member WGS84 = Ellipsoid(Constants.WGS84_a, Constants.WGS84_f)
 
+[<System.FlagsAttribute>]
+type PermissionFlags = 
+    CapNone         = 0b0000000000000000
+    | CapC1         = 0b0000000000000001
+    | CapC1p        = 0b0000000000000010     
+    | CapC2         = 0b0000000000000100
+    | CapC3         = 0b0000000000001000
+    | CapC4         = 0b0000000000010000
+    | CapAll        = 0b0000000000011111
+    | OutAll        = 0b0111111110000000
+    | OutMask       = 0b1111111110000000
+                    
+type Mask =         
+    None            = 0b0000000000000000
+    | Latitude      = 0b0000000010000000
+    | Longitude     = 0b0000000100001000
+    | Azimuth       = 0b0000001000000000
+    | Distance      = 0b0000010000000001
+    | DistanceIn    = 0b0000100000000011
+    | ReducedLength = 0b0001000000000101
+    | GeodesicScale = 0b0010000000000101
+    | Area          = 0b0100000000010000
+    | LongUnroll    = 0b1000000000010000
+    | All           = 0b0111111110011111
+
 //   \brief %Geodesic calculations
 //   
 //   The shortest path between two points on a ellipsoid at (\e lat1, \e lon1)
@@ -251,6 +276,7 @@ type Ellipsoid(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
 //   <a href="GeodSolve.1.html">GeodSolve</a> is a command-line utility
 //   providing access to the functionality of Geodesic and GeodesicLine.
 type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
+    
     let tiny = sqrt MathLib.minFloat
     let tol0 = MathLib.epsilon
     let tol1 = 200.0 * tol0
@@ -279,7 +305,12 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     let C3x = generatePolynomial GeodesicCoefficients.nC3 GeodesicCoefficients.C3Coeff
     let C4x = generatePolynomial GeodesicCoefficients.nC4 GeodesicCoefficients.C4Coeff
 
-    let GenInverse (location1 : GeodesicLocation) (location2 : GeodesicLocation) =
+    let Lengths (eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2) outMask (s12b : float<m> byref, m12b : float<m> byref, m0 : float<m> byref, gs12 : float byref, gs21 : float byref) =
+        let outMask = outMask &&& PermissionFlags.OutMask
+        0
+
+    let GenInverse (location1 : GeodesicLocation, location2 : GeodesicLocation) outMask (s12 : float<m> byref, azi1 : float<deg> byref, azi2 : float<deg> byref, m12 : float<m> byref, gs12 : float byref, gs21 : float byref, ga12 : float<m^2> byref) =
+        let outMask = outMask &&& PermissionFlags.OutMask
         // Compute longitude difference (AngDiff does this carefully).  Result is
         // in [-180, 180] but -180 is only for west-going geodesics.  180 is for
         // east-going and meridional geodesics.
