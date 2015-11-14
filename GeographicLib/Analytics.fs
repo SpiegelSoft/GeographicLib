@@ -305,21 +305,20 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     let C3x = generatePolynomial GeodesicCoefficients.nC3 GeodesicCoefficients.C3Coeff
     let C4x = generatePolynomial GeodesicCoefficients.nC4 GeodesicCoefficients.C4Coeff
 
-    let Lengths (eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2) outMask (s12b : float byref, m12b : float byref, m0 : float byref, gs12 : float byref, gs21 : float byref) =
+    let Lengths (eps, sig12 : float, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2) outMask (s12b : float byref) (m12b : float byref) (m0 : float byref) (gs12 : float byref) (gs21 : float byref) (Ca : float[]) =
         let outMask = outMask &&& int PermissionFlags.OutMask
         let mutable m0x = 0.0
-        let mutable J12 = 0.0 
+        let mutable J12 = 0.0
         let mutable A1 = 0.0
         let mutable A2 = 0.0
-        let mutable Ca = [||]
-        let mutable Cb = [||]
+        let mutable Cb = Array.create (GeodesicCoefficients.nC2 + 1) 0.0
         if outMask &&& int (Mask.Distance ||| Mask.ReducedLength ||| Mask.GeodesicScale) > 0 then
-            Ca <- GeodesicCoefficients.C1Fourier eps
+            GeodesicCoefficients.C1Fourier eps Ca
             let mutable Cb = [||]
             A1 <- GeodesicCoefficients.A1m1f(eps)
             if outMask &&& int (Mask.ReducedLength ||| Mask.GeodesicScale) > 0 then
                 A2 <- GeodesicCoefficients.A2m1f(eps);
-                Cb <- GeodesicCoefficients.C2Fourier eps;
+                GeodesicCoefficients.C2Fourier eps Cb;
                 m0x <- A1 - A2;
                 A2 <- 1.0 + A2;
             A1 <- 1.0 + A1;
@@ -347,8 +346,27 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
             gs12 <- csig12 + (t * ssig2 - csig2 * J12) * ssig1 / dn1
             gs21 <- csig12 - (t * ssig1 - csig1 * J12) * ssig2 / dn2
 
-    let GenInverse (location1 : GeodesicLocation, location2 : GeodesicLocation) outMask (s12 : float<m> byref, azi1 : float<deg> byref, azi2 : float<deg> byref, m12 : float<m> byref, gs12 : float byref, gs21 : float byref, ga12 : float<m^2> byref) =
-        let outMask = outMask &&& PermissionFlags.OutMask
+    let InverseStart (sbet1, cbet1, dn1, sbet2, cbet2, dn2, lam12) (salp1 : float byref) (calp1 : float byref) (salp2 : float byref) (calp2 : float byref) (dnm : float byref) (Ca : float[]) =
+        let sig12 = -1.0
+        let sbet12 = sbet2 * cbet1 - cbet2 * sbet1
+        let cbet12 = cbet2 * cbet1 + sbet2 * sbet1
+        let sbet12a = sbet2 * cbet1 + cbet2 * sbet1
+        let shortline = cbet12 >= 0.0 && sbet12 < 0.5 && cbet2 * lam12 < 0.5
+        let mutable omg12 = lam12
+        if shortline then
+            let mutable sbetm2 = MathLib.sq(sbet1 + sbet2)
+            // sin((bet1+bet2)/2)^2
+            // =  (sbet1 + sbet2)^2 / ((sbet1 + sbet2)^2 + (cbet1 + cbet2)^2)
+            sbetm2 <- sbetm2 / (sbetm2 + MathLib.sq(cbet1 + cbet2))
+            dnm <- sqrt (1.0 + ep2 * sbetm2)
+            omg12 <- omg12 / (f1 * dnm)
+
+        let somg12, comg12 = sin omg12, cos omg12
+        salp1 <- cbet2 * somg12
+        calp1 <- if comg12 >= 0.0 then sbet12 + cbet2 * sbet1 * MathLib.sq somg12 / (1.0 + comg12) else sbet12a - cbet2 * sbet1 * MathLib.sq somg12 / (1.0 - comg12)
+
+    let GenInverse (location1 : GeodesicLocation, location2 : GeodesicLocation) outMask (s12 : float<m> byref) (azi1 : float<deg> byref) (azi2 : float<deg> byref) (m12 : float<m> byref) (gs12 : float byref) (gs21 : float byref) (ga12 : float<m^2> byref) =
+        let outMask = outMask &&& int PermissionFlags.OutMask
         // Compute longitude difference (AngDiff does this carefully).  Result is
         // in [-180, 180] but -180 is only for west-going geodesics.  180 is for
         // east-going and meridional geodesics.
@@ -391,6 +409,10 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         // enforces some symmetries in the results returned.
         let mutable sbet1, cbet1 = normalisedSinCos lat1
         let mutable sbet2, cbet2 = normalisedSinCos lat2
+        let mutable s12b = 0.0
+        let mutable m12b = 0.0
+        let mutable s12x = 0.0<m>
+        let mutable m12x = 0.0<m>
 
         // If cbet1 < -sbet1, then cbet2 - cbet1 is a sensitive measure of the
         // |bet1| - |bet2|.  Alternatively (cbet1 >= -sbet1), abs(sbet2) + sbet1 is
@@ -409,9 +431,10 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
 
         let lam12 = MathLib.radians lon12
         let slam12, clam12 = MathLib.sincos lon12
-        let mutable a12, sig12, calp1, salp1, calp2, salp2 = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        let mutable a12, sig12, calp1, salp1, calp2, salp2 = 0.0<deg>, 0.0, 0.0, 0.0, 0.0, 0.0
 
         let mutable meridian = (lat1 = -90.0<deg> || slam12 = 0.0)
+        let Ca = Array.create GeodesicCoefficients.nC 0.0
         if meridian then
             // Endpoints are on a single full meridian, so the geodesic might lie on
             // a meridian.
@@ -422,6 +445,37 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
             let ssig1, csig1 = sbet1, calp1 * cbet1
             let ssig2, csig2 = sbet2, calp2 * cbet2
             sig12 <- Math.Atan2(max (csig1 * ssig2 - ssig1 * csig2) 0.0, csig1 * csig2 + ssig1 * ssig2)
+            let mutable dummy = 0.0
+            Lengths (n, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2) (outMask ||| int (Mask.Distance ||| Mask.ReducedLength)) &s12b &m12b &dummy &gs12 &gs21 Ca
+            if sig12 < 1.0 || m12x >= 0.0<m> then
+                // Need at least 2, to handle 90 0 90 180
+                if sig12 < 3.0 * tiny then
+                    s12x <- 0.0<m>
+                    m12x <- 0.0<m>
+                    sig12 <- 0.0
+                m12x <- m12b * b
+                s12x <- s12b * b
+                a12 <- MathLib.degrees sig12
+            else
+                // m12 < 0, i.e., prolate and too close to anti-podal
+                meridian <- false;
+        
+        let mutable omg12 = 0.0
+        if not meridian && sbet1 = 0.0 && (f <= 0.0 || lam12 <= Math.PI - f * Math.PI) then
+            calp2 <- 0.0
+            calp1 <- 0.0
+            salp1 <- 1.0
+            salp2 <- 1.0
+            s12x <- a * lam12
+            omg12 <- lam12 / f1
+            sig12 <- omg12
+            m12x <- b * sin sig12
+            if outMask &&& int Mask.GeodesicScale > 0 then
+                gs21 <- cos sig12
+                gs21 <- gs12
+            a12 <- lon12 / f1
+        // else if not meridian then
+
         0.0
 
     static member WGS84 = Geodesic(Constants.WGS84_a, Constants.WGS84_f)

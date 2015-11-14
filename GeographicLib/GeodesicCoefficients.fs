@@ -26,16 +26,15 @@ module GeodesicCoefficients =
     [<Literal>]
     let maxit1 = 20
     
-    let Fourier n (coeff : float[]) eps =
+    let Fourier n (coeff : float[]) eps (Ca : float[]) =
         let eps2 = sqrt eps
         let mutable d = eps
         let mutable o = 0
-        [|1..n|] |> Array.map (fun l ->
+        for l in 1..n do
             let m = (n - l) / 2
-            let v = d * MathLib.polyval(m, coeff.[o..], eps2) / coeff.[o + m + 1]
+            Ca.[l] <- d * MathLib.polyval(m, coeff.[o..], eps2) / coeff.[o + m + 1]
             o <- o + m + 2
             d <- d * eps
-            v) |> Array.append [|0.0|]
 
     // The scale factor A2-1 = mean value of (d/dsigma)I2 - 1
     let A2m1f eps =
@@ -90,7 +89,7 @@ module GeodesicCoefficients =
         (t + eps) / (1.0 - eps)
 
     // The coefficients C1[l] in the Fourier expansion of B1
-    let C1Fourier eps =
+    let C1Fourier eps (Ca : float[]) =
         let coeff = 
             match GeodesicOrder with
             | 3 ->
@@ -145,9 +144,9 @@ module GeodesicCoefficients =
                     -429.0; 262144.0 // C1[8]/eps^8: polynomial in eps2 of order 0
                 |]
             | _ -> raise <| new ArgumentException()
-        Fourier nC1 coeff eps
+        Fourier nC1 coeff eps Ca
 
-    let C2Fourier eps =
+    let C2Fourier eps (Ca : float[]) =
         let coeff = 
             match GeodesicOrder with
             | 3 ->
@@ -202,7 +201,7 @@ module GeodesicCoefficients =
                     6435.0; 262144.0 // C2[8]/eps^8: polynomial in eps2 of order 0
                 |]
             | _ -> raise <| new ArgumentException()
-        Fourier nC2 coeff eps
+        Fourier nC2 coeff eps Ca
 
     let C4Coeff =
         match GeodesicOrder with
