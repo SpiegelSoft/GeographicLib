@@ -3,6 +3,12 @@
 open System.Runtime.InteropServices
 open System
 
+module Utilities =
+    let inline swap<'a> (x : 'a byref) (y : 'a byref) =
+        let temp = x
+        x <- y
+        y <- temp
+
 module MathLib =
     let degreesPerRadian = 1.0<deg/rad> * 180.0/Math.PI
     let radiansPerDegree = 1.0</deg> * Math.PI/180.0
@@ -121,3 +127,30 @@ module MathLib =
             2.0 * sinx * cosx * y0 // sin(2 * x) * y0
         else
             cosx * (y0 - y1)
+
+    let atan2d y x =
+        let mutable y, x = y, x
+        // In order to minimize round-off errors, this function rearranges the
+        // arguments so that result of atan2 is in the range [-pi/4, pi/4] before
+        // converting it to degrees and mapping the result to the correct
+        // quadrant.
+        let mutable q = 0
+        if abs(y) > abs(x) then 
+            Utilities.swap &x &y
+            q <- 2
+        if x < 0.0 then 
+            x <- -x
+            q <- q + 1
+        // here x >= 0 and x >= abs(y), so angle is in [-pi/4, pi/4]
+        let mutable ang = atan2 y x |> degrees
+        match q with
+        // Note that atan2d(-0.0, 1.0) will return -0.  However, we expect that
+        // atan2d will not be called with y = -0.  If need be, include
+        //
+        //   | 0: ang = 0 + ang; break;
+        //
+        // and handle mpfr as in AngRound.
+        | 1 -> ang <- (if y > 0.0 then 180.0<deg> else -180.0<deg>) - ang
+        | 2 -> ang <- 90.0<deg> - ang
+        | 3 -> ang <- -90.0<deg> + ang
+        ang
