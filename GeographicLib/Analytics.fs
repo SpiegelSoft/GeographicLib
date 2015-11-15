@@ -293,18 +293,21 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     let c2 = (MathLib.sq(a) + MathLib.sq(b) * MathLib.eatanhe(1.0, (if f < 0.0 then -1.0 else 1.0) * sqrt(abs(e2))) / e2) / 2.0
     let etol2 = 0.1 * tol2 / (sqrt(max 0.001 (abs f) * (min 1.0 1.0 - f/2.0) / 2.0))
 
-    let generatePolynomial nCoeff (coeff : float[]) =
-        let mutable o = 0
+    let generatePolynomial nCoeff (coeff : float[]) nArray =
+        let mutable o, k = 0, 0
+        let array = Array.zeroCreate nArray
         o <- 0
-        [|0..nCoeff - 1|] |> Array.rev |> Array.mapi (fun k j ->
-            let m = min (nCoeff - j - 1) j
-            let value = MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
-            o <- o + m + 2
-            value)
+        for l in [|1..nCoeff - 1|] do
+            for j in [|nCoeff - 1..1|] do
+                let m = min (nCoeff - j - 1) j
+                coeff.[k] <- MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
+                k <- k + 1
+                o <- o + m + 2
+        array
         
-    let A3x = generatePolynomial GeodesicCoefficients.nA3 GeodesicCoefficients.A3Coeff
-    let C3x = generatePolynomial GeodesicCoefficients.nC3 GeodesicCoefficients.C3Coeff
-    let C4x = generatePolynomial GeodesicCoefficients.nC4 GeodesicCoefficients.C4Coeff
+    let A3x = generatePolynomial GeodesicCoefficients.nA3 GeodesicCoefficients.A3Coeff GeodesicCoefficients.nA3x
+    let C3x = generatePolynomial GeodesicCoefficients.nC3 GeodesicCoefficients.C3Coeff GeodesicCoefficients.nC3x
+    let C4x = generatePolynomial GeodesicCoefficients.nC4 GeodesicCoefficients.C4Coeff GeodesicCoefficients.nC4x
 
     let A3f eps = MathLib.polyval(GeodesicCoefficients.nA3 - 1, A3x, eps)
 
@@ -336,10 +339,9 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         let mutable J12 = 0.0
         let mutable A1 = 0.0
         let mutable A2 = 0.0
-        let mutable Cb = Array.create (GeodesicCoefficients.nC2 + 1) 0.0
+        let Cb = Array.create (GeodesicCoefficients.nC2 + 1) 0.0
         if outMask &&& int (Mask.Distance ||| Mask.ReducedLength ||| Mask.GeodesicScale) > 0 then
             GeodesicCoefficients.C1Fourier eps Ca
-            let mutable Cb = [||]
             A1 <- GeodesicCoefficients.A1m1f(eps)
             if outMask &&& int (Mask.ReducedLength ||| Mask.GeodesicScale) > 0 then
                 A2 <- GeodesicCoefficients.A2m1f(eps);
@@ -607,7 +609,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         lam12
 
     let GenInverse (location1 : GeodesicLocation, location2 : GeodesicLocation) outMask (s12 : float<m> byref) (azi1 : float<deg> byref) (azi2 : float<deg> byref) (m12 : float<m> byref) (gs12 : float byref) (gs21 : float byref) (ga12 : float<m^2> byref) =
-        let maxit2 = GeodesicCoefficients.maxit1 + 32 + 10
+        let maxit2 = GeodesicCoefficients.maxit1 + 64 + 10
         let outMask = outMask &&& int PermissionFlags.OutMask
         // Compute longitude difference (AngDiff does this carefully).  Result is
         // in [-180, 180] but -180 is only for west-going geodesics.  180 is for
@@ -751,8 +753,8 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
                         if numit > maxit2 then raise <| new ArithmeticException("Newton's method failed to converge.")
                         // the WGS84 test set: mean = 1.47, sd = 1.25, max = 16
                         // WGS84 and random input: mean = 2.85, sd = 0.60
-                        let mutable dv = 0.0;
-                        let v = (Lambda12(sbet1, cbet1, dn1, sbet2, cbet2, dn2, salp1, calp1) &salp2 &calp2 &sig12 &ssig1 &csig1 &ssig2 &csig2 &eps &omg12 (numit < GeodesicCoefficients.maxit1) &dv Ca) - lam12;
+                        let mutable dv = 0.0
+                        let v = (Lambda12(sbet1, cbet1, dn1, sbet2, cbet2, dn2, salp1, calp1) &salp2 &calp2 &sig12 &ssig1 &csig1 &ssig2 &csig2 &eps &omg12 (numit < GeodesicCoefficients.maxit1) &dv Ca) - lam12
                         // 2 * tol0 is approximately 1 ulp for a number in [0, pi].
                         // Reversed test to allow escape with NaNs
                         let mutable useNextMidpoint = true
@@ -889,6 +891,11 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         a12
 
     static member WGS84 = Geodesic(Constants.WGS84_a, Constants.WGS84_f)
+
+    member this.Inverse(location1 : GeodesicLocation, location2 : GeodesicLocation) =
+        let mutable t, tg, tm, s12, a = 0.0, 0.0<deg>, 0.0<m>, 0.0<m>, 0.0<m^2>
+        let s = GenInverse (location1, location2) (int Mask.Distance) &s12 &tg &tg &tm &t &t &a
+        s12
 
     member this.A3 with get() = A3x    
     member this.C3 with get() = C3x    

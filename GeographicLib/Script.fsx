@@ -18,6 +18,7 @@ let shouldEqual6 = MathLib.polyval(2, [|2.0; 3.0; 1.0|], 1.0)
 let shouldEqual24 = MathLib.polyval(3, [|6.0; 11.0; 6.0; 1.0|], 1.0)
     
 let geo = new Geodesic(Constants.WGS84_a, Constants.WGS84_f)
+let s12 = geo.Inverse (new GeodesicLocation(23.0<deg>, 117.0<deg>), new GeodesicLocation(34.0<deg>, 99.1<deg>))
 
 
 

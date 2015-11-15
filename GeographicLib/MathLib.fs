@@ -153,4 +153,5 @@ module MathLib =
         | 1 -> ang <- (if y > 0.0 then 180.0<deg> else -180.0<deg>) - ang
         | 2 -> ang <- 90.0<deg> - ang
         | 3 -> ang <- -90.0<deg> + ang
+        | _ -> raise <| new ArgumentException()
         ang
