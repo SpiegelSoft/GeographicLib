@@ -293,21 +293,41 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     let c2 = (MathLib.sq(a) + MathLib.sq(b) * MathLib.eatanhe(1.0, (if f < 0.0 then -1.0 else 1.0) * sqrt(abs(e2))) / e2) / 2.0
     let etol2 = 0.1 * tol2 / (sqrt(max 0.001 (abs f) * (min 1.0 1.0 - f/2.0) / 2.0))
 
-    let generatePolynomial nCoeff (coeff : float[]) nArray =
+    let generateA3Polynomial nCoeff (coeff : float[]) nArray =
+        let mutable k, o = 0, 0
+        let array = Array.zeroCreate nArray
+        for j in Array.rev [|0..nCoeff - 1|] do
+            let m = min (nCoeff - j - 1) j
+            array.[k] <- MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
+            k <- k + 1
+            o <- o + m + 2
+        array
+
+    let generateC3Polynomial nCoeff (coeff : float[]) nArray =
         let mutable o, k = 0, 0
         let array = Array.zeroCreate nArray
-        o <- 0
         for l in [|1..nCoeff - 1|] do
-            for j in [|nCoeff - 1..1|] do
+            for j in Array.rev [|l..nCoeff - 1|] do
                 let m = min (nCoeff - j - 1) j
-                coeff.[k] <- MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
+                array.[k] <- MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
+                k <- k + 1
+                o <- o + m + 2
+        array
+
+    let generateC4Polynomial nCoeff (coeff : float[]) nArray =
+        let mutable o, k = 0, 0
+        let array = Array.zeroCreate nArray
+        for l in [|0..nCoeff - 1|] do
+            for j in Array.rev [|l..nCoeff - 1|] do
+                let m = nCoeff - j - 1
+                array.[k] <- MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
                 k <- k + 1
                 o <- o + m + 2
         array
         
-    let A3x = generatePolynomial GeodesicCoefficients.nA3 GeodesicCoefficients.A3Coeff GeodesicCoefficients.nA3x
-    let C3x = generatePolynomial GeodesicCoefficients.nC3 GeodesicCoefficients.C3Coeff GeodesicCoefficients.nC3x
-    let C4x = generatePolynomial GeodesicCoefficients.nC4 GeodesicCoefficients.C4Coeff GeodesicCoefficients.nC4x
+    let A3x = generateA3Polynomial GeodesicCoefficients.nA3 GeodesicCoefficients.A3Coeff GeodesicCoefficients.nA3x
+    let C3x = generateC3Polynomial GeodesicCoefficients.nC3 GeodesicCoefficients.C3Coeff GeodesicCoefficients.nC3x
+    let C4x = generateC4Polynomial GeodesicCoefficients.nC4 GeodesicCoefficients.C4Coeff GeodesicCoefficients.nC4x
 
     let A3f eps = MathLib.polyval(GeodesicCoefficients.nA3 - 1, A3x, eps)
 
@@ -333,7 +353,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
             c.[l] <- mult * MathLib.polyval(m, C3x.[o..], eps)
             o <- o + m + 1
 
-    let Lengths (eps, sig12 : float, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2) outMask (s12b : float byref) (m12b : float byref) (m0 : float byref) (gs12 : float byref) (gs21 : float byref) (Ca : float[]) =
+    let Lengths (eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2) outMask (s12b : float byref) (m12b : float byref) (m0 : float byref) (gs12 : float byref) (gs21 : float byref) (Ca : float[]) =
         let outMask = outMask &&& int PermissionFlags.OutMask
         let mutable m0x = 0.0
         let mutable J12 = 0.0
@@ -341,8 +361,8 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         let mutable A2 = 0.0
         let Cb = Array.create (GeodesicCoefficients.nC2 + 1) 0.0
         if outMask &&& int (Mask.Distance ||| Mask.ReducedLength ||| Mask.GeodesicScale) > 0 then
-            GeodesicCoefficients.C1Fourier eps Ca
             A1 <- GeodesicCoefficients.A1m1f(eps)
+            GeodesicCoefficients.C1Fourier eps Ca
             if outMask &&& int (Mask.ReducedLength ||| Mask.GeodesicScale) > 0 then
                 A2 <- GeodesicCoefficients.A2m1f(eps);
                 GeodesicCoefficients.C2Fourier eps Cb;
@@ -437,7 +457,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         let mutable somg12 = sin omg12
         let mutable comg12 = cos omg12
         salp1 <- cbet2 * somg12
-        calp1 <- if comg12 >= 0.0 then sbet12 + cbet2 * sbet1 * MathLib.sq somg12 / (1.0 + comg12) else sbet12a - cbet2 * sbet1 * MathLib.sq somg12 / (1.0 - comg12)
+        calp1 <- if comg12 >= 0.0 then sbet12 + (cbet2 * sbet1 * MathLib.sq somg12 / (1.0 + comg12)) else sbet12a - cbet2 * sbet1 * MathLib.sq somg12 / (1.0 - comg12)
         let ssig12 = MathLib.hypot(salp1, calp1)
         let csig12 = sbet1 * sbet2 + cbet1 * cbet2 * comg12
 
@@ -445,10 +465,8 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
             // really short lines
             salp2 <- cbet1 * somg12
             calp2 <- sbet12 - cbet1 * sbet2 * (if comg12 >= 0.0 then MathLib.sq(somg12) / (1.0 + comg12) else 1.0 - comg12)
-            let norm = MathLib.norm(salp2, calp2)
-            salp2 <- fst norm
-            calp2 <- snd norm
-            // Set return valu
+            MathLib.norm &salp2 &calp2
+            // Set return value
             sig12 <- atan2 ssig12  csig12
         else if abs(n) > 0.1 || csig12 >= 0.0 || ssig12 >= 6.0 * abs(n) * Math.PI * MathLib.sq(cbet1) then
             0 |> ignore // Nothing to do, zeroth order spherical approximation is OK
@@ -532,10 +550,8 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
                 // Update spherical estimate of alp1 using omg12 instead of lam12
                 salp1 <- cbet2 * somg12
                 calp1 <- sbet12a - cbet2 * sbet1 * MathLib.sq(somg12) / (1.0 - comg12)
-        if not (salp1 <= 0.0) then
-            let norm = MathLib.norm(salp1, calp1)
-            salp1 <- fst norm
-            calp1 <- snd norm
+        if not (salp1 <= 0.0) then 
+            MathLib.norm &salp1 &calp1
         else
             salp1 <- 1.0
             calp1 <- 0.0
@@ -554,9 +570,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         somg1 <- salp0 * sbet1
         comg1 <- calp1 * cbet1
         csig1 <- comg1
-        let norm = MathLib.norm(ssig1, csig1)
-        ssig1 <- fst norm
-        csig1 <- snd norm
+        MathLib.norm &ssig1 &csig1
         // Math::norm(somg1, comg1); -- don't need to normalize!
 
         // Enforce symmetries in the case abs(bet2) = -bet1.  Need to be careful
@@ -579,9 +593,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         somg2 <- salp0 * sbet2
         comg2 <- calp2 * cbet2
         csig2 <- comg2
-        let norm = MathLib.norm(ssig2, csig2)
-        ssig2 <- fst norm
-        csig2 <- snd norm
+        MathLib.norm &ssig2 &csig2
         // Math::norm(somg2, comg2); -- don't need to normalize!
 
         // sig12 = sig2 - sig1, limit to [0, pi]
@@ -609,7 +621,8 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         lam12
 
     let GenInverse (location1 : GeodesicLocation, location2 : GeodesicLocation) outMask (s12 : float<m> byref) (azi1 : float<deg> byref) (azi2 : float<deg> byref) (m12 : float<m> byref) (gs12 : float byref) (gs21 : float byref) (ga12 : float<m^2> byref) =
-        let maxit2 = GeodesicCoefficients.maxit1 + 64 + 10
+        let maxit1 = GeodesicCoefficients.maxit1
+        let maxit2 = maxit1 + 64 + 10
         let outMask = outMask &&& int PermissionFlags.OutMask
         // Compute longitude difference (AngDiff does this carefully).  Result is
         // in [-180, 180] but -180 is only for west-going geodesics.  180 is for
@@ -623,10 +636,10 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         let mutable lat2 = MathLib.angRound(location2.Latitude)
         // Swap points so that point with higher (abs) latitude is point 1
         let swapp = if abs(lat1) >= abs(lat2) then 1.0 else -1.0
-        if swapp < 0.0 then
-            let (l2, l1) = (lat1, lat2)
-            lat1 <- l1
-            lat2 <- l2
+        if swapp < 0.0 then 
+            Utilities.swap &lat1 &lat2
+            lonsign <- -1.0 * lonsign
+
         // Make lat1 <= 0
         let latsign = if lat1 < 0.0<deg> then 1.0 else -1.0;
         lat1 <- lat1 * latsign;
@@ -635,9 +648,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         let normalisedSinCos lat =
             let mutable sbet, cbet = MathLib.sincos lat
             sbet <- sbet * f1
-            let norm = MathLib.norm (sbet, cbet)
-            sbet <- fst norm
-            cbet <- snd norm
+            MathLib.norm &sbet &cbet
             cbet <- max tiny cbet
             (sbet, cbet)
         // Now we have
@@ -754,7 +765,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
                         // the WGS84 test set: mean = 1.47, sd = 1.25, max = 16
                         // WGS84 and random input: mean = 2.85, sd = 0.60
                         let mutable dv = 0.0
-                        let v = (Lambda12(sbet1, cbet1, dn1, sbet2, cbet2, dn2, salp1, calp1) &salp2 &calp2 &sig12 &ssig1 &csig1 &ssig2 &csig2 &eps &omg12 (numit < GeodesicCoefficients.maxit1) &dv Ca) - lam12
+                        let v = (Lambda12(sbet1, cbet1, dn1, sbet2, cbet2, dn2, salp1, calp1) &salp2 &calp2 &sig12 &ssig1 &csig1 &ssig2 &csig2 &eps &omg12 (numit < maxit1) &dv Ca) - lam12
                         // 2 * tol0 is approximately 1 ulp for a number in [0, pi].
                         // Reversed test to allow escape with NaNs
                         let mutable useNextMidpoint = true
@@ -762,22 +773,20 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
                             newton (numit + 1) true
                         else
                             // Update bracketing values
-                            if v > 0.0 && (numit > GeodesicCoefficients.maxit1 || calp1/salp1 > calp1b/salp1b) then
+                            if v > 0.0 && (numit > maxit1 || calp1/salp1 > calp1b/salp1b) then
                                 salp1b <- salp1
                                 calp1b <- calp1
-                            else if v < 0.0 && (numit > GeodesicCoefficients.maxit1 || calp1/salp1 < calp1a/salp1a) then
+                            else if v < 0.0 && (numit > maxit1 || calp1/salp1 < calp1a/salp1a) then
                                 salp1a <- salp1
                                 calp1a <- calp1
-                            if numit < GeodesicCoefficients.maxit1 && dv > 0.0 then
+                            if numit < maxit1 && dv > 0.0 then
                                 let dalp1 = -v/dv;
                                 let sdalp1, cdalp1 = sin(dalp1), cos(dalp1)
                                 let nsalp1 = salp1 * cdalp1 + calp1 * sdalp1
                                 if nsalp1 > 0.0 && abs(dalp1) < Math.PI then
                                     calp1 <- calp1 * cdalp1 - salp1 * sdalp1
                                     salp1 <- nsalp1;
-                                    let norm = MathLib.norm(salp1, calp1)
-                                    salp1 <- fst norm
-                                    calp1 <- snd norm
+                                    MathLib.norm &salp1 &calp1
                                     // In some regimes we don't get quadratic convergence because
                                     // slope -> 0.  So use convergence conditions based on epsilon
                                     // instead of sqrt(epsilon).
@@ -796,9 +805,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
                                 // WGS84 and random input: mean = 4.74, sd = 0.99
                                 salp1 <- (salp1a + salp1b)/2.0
                                 calp1 <- (calp1a + calp1b)/2.0
-                                let norm = MathLib.norm(salp1, calp1)
-                                salp1 <- fst norm
-                                calp1 <- snd norm
+                                MathLib.norm &salp1 &calp1
                                 tripn <- false
                                 tripb <- abs(salp1a - salp1) + (calp1a - calp1) < tolb || abs(salp1 - salp1b) + (calp1 - calp1b) < tolb
                                 newton (numit + 1) false
@@ -828,16 +835,16 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
             let mutable alp12 = 0.0
             if (calp0 <> 0.0 && salp0 <> 0.0) then
                 // From Lambda12: tan(bet) = tan(sig) * cos(alp)
-                let ssig1 = sbet1
-                let csig1 = calp1 * cbet1
-                let ssig2 = sbet2
-                let csig2 = calp2 * cbet2
+                let mutable ssig1 = sbet1
+                let mutable csig1 = calp1 * cbet1
+                let mutable ssig2 = sbet2
+                let mutable csig2 = calp2 * cbet2
                 let k2 = MathLib.sq(calp0) * ep2
                 let eps = k2 / (2.0 * (1.0 + sqrt(1.0 + k2)) + k2)
                 // Multiplier = a^2 * e^2 * cos(alpha0) * sin(alpha0).
                 let A4 = MathLib.sq(a) * calp0 * salp0 * e2
-                let norm1 = MathLib.norm(ssig1, csig1)
-                let norm2 = MathLib.norm(ssig2, csig2)
+                MathLib.norm &ssig1 &csig1
+                MathLib.norm &ssig2 &csig2
                 C4f eps Ca
                 let B41 = MathLib.sinCosSeries(false, ssig1, csig1, Ca, GeodesicCoefficients.nC4)
                 let B42 = MathLib.sinCosSeries(false, ssig2, csig2, Ca, GeodesicCoefficients.nC4)
@@ -875,8 +882,8 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         if swapp < 0.0 then
             Utilities.swap &salp1 &salp2
             Utilities.swap &calp1 &calp2
-        if outMask &&& int Mask.GeodesicScale > 0 then
-            Utilities.swap &gs12 &gs21
+            if outMask &&& int Mask.GeodesicScale > 0 then
+                Utilities.swap &gs12 &gs21
 
         salp1 <- salp1 * swapp * lonsign
         calp1 <- calp1 * swapp * latsign

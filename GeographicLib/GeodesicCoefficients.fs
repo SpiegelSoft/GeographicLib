@@ -27,7 +27,7 @@ module GeodesicCoefficients =
     let maxit1 = 20
     
     let Fourier n (coeff : float[]) eps (Ca : float[]) =
-        let eps2 = sqrt eps
+        let eps2 = MathLib.sq eps
         let mutable d = eps
         let mutable o = 0
         for l in 1..n do

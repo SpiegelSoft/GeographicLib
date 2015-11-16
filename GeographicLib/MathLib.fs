@@ -24,9 +24,10 @@ module MathLib =
         x <- max x y
         t <- t / x
         x * sqrt (1.0 + t * t)
-    let norm (x, y) =
+    let norm (x : float byref) (y : float byref) =
         let h = hypot (x, y)
-        (x / h, y / h)
+        x <- x / h
+        y <- y / h
 
     [<Struct>]
     type ValueAndError(value : float<deg>, error : float<deg>) =
