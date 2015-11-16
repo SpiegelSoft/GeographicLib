@@ -296,7 +296,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     let generateA3Polynomial nCoeff (coeff : float[]) nArray =
         let mutable k, o = 0, 0
         let array = Array.zeroCreate nArray
-        for j in Array.rev [|0..nCoeff - 1|] do
+        for j in (nCoeff - 1)..(-1)..0 do
             let m = min (nCoeff - j - 1) j
             array.[k] <- MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
             k <- k + 1
@@ -600,7 +600,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         sig12 <- atan2 (max(csig1 * ssig2 - ssig1 * csig2) 0.0) (csig1 * csig2 + ssig1 * ssig2)
 
         // omg12 = omg2 - omg1, limit to [0, pi]
-        omg12 <- atan2(max(comg1 * somg2 - somg1 * comg2) 0.0) comg1 * comg2 + somg1 * somg2
+        omg12 <- atan2(max(comg1 * somg2 - somg1 * comg2) 0.0) (comg1 * comg2 + somg1 * somg2)
         let mutable B312, h0 = 0.0, 0.0
         let k2 = MathLib.sq(calp0) * ep2
         eps <- k2 / (2.0 * (1.0 + sqrt(1.0 + k2)) + k2)

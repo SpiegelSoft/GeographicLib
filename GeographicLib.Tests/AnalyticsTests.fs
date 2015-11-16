@@ -13,5 +13,5 @@ type ``Geodesic Distances``()=
     [<InlineData(2.881248229541<deg>, 53.997072295385487038<deg>, 44.520619105667619923<deg>, 6958264.1576889<m>)>]
     member test.``Example distance``(lat1, lat2, long2, expected) =
         let geo = new Geodesic(Constants.WGS84_a, Constants.WGS84_f)
-        let s12 = geo.Inverse (new GeodesicLocation(lat1, 0.0<deg>), new GeodesicLocation(lat2, long2))
-        s12 |> ignore
+        let actual = geo.Inverse (new GeodesicLocation(lat1, 0.0<deg>), new GeodesicLocation(lat2, long2))
+        Assert.Equal(expected/1.0<m>, actual/1.0<m>, 6)

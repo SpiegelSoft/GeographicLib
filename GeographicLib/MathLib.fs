@@ -48,7 +48,7 @@ module MathLib =
 
     let atanh(x) = (log(1.0 + x) - log(1.0 - x))/2.0
     let rec getMachineEpsilon eps = if 1.0 + eps = 1.0 then eps else getMachineEpsilon ((abs eps) / 2.0)
-    let eatanhe(x, es) = if es >= 0.0 then es * atanh(es * x) else -es * atan(es * x)
+    let eatanhe(x, es) = if es > 0.0 then es * atanh(es * x) else -es * atan(es * x)
     let sq(x : float<'a>) = x * x
     let minFloat = Double.Epsilon
     let epsilon = getMachineEpsilon 0.1
