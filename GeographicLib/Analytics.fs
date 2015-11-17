@@ -899,11 +899,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
 
     static member WGS84 = Geodesic(Constants.WGS84_a, Constants.WGS84_f)
 
-    member this.Inverse(location1 : GeodesicLocation, location2 : GeodesicLocation) =
+    member this.Distance (location1 : GeodesicLocation) (location2 : GeodesicLocation) =
         let mutable t, tg, tm, s12, a = 0.0, 0.0<deg>, 0.0<m>, 0.0<m>, 0.0<m^2>
         let s = GenInverse (location1, location2) (int Mask.Distance) &s12 &tg &tg &tm &t &t &a
         s12
-
-    member this.A3 with get() = A3x    
-    member this.C3 with get() = C3x    
-    member this.C4 with get() = C4x
