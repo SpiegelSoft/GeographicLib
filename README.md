@@ -1,9 +1,11 @@
 # GeographicLib
 A port of GeographicLib into F#
 
-My goodness, this package has had more downloads than I first expected.  I hope those of you who have downloaded it have had the wherewithal to look at the source code for the tests to work out how to actually use the functionality.
+My goodness, this package has had more downloads than I first expected.  I hope those of you who have downloaded it have had the wherewithal to look at the tests in the source code to work out how to actually use the functionality.
 
-The only function this exposes at present is the Distance function.  If you want another function then please feel free to log an issue.
+The geodesic function we expose at present is the Distance function.  If you want another function then please feel free to log an issue.
+
+You can use this package in a C# project, but then you won't reap the fabulous benefits of units of measure.
 
 How to calculate distance between two locations:
 
