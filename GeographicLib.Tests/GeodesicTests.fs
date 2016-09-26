@@ -2,12 +2,19 @@
 
 open GeographicLib
 open Xunit
-open Xunit.Extensions
 open System
 open System.IO
+open Newtonsoft.Json
+
+type ``GeodesicLocation serialisation``()=
+    [<Fact>]
+    member __.``Forwards and backwards serialisation of GeodesicLocation struct``() =
+        let location = new GeodesicLocation(51.5194894<deg>, -0.0524782<deg>)
+        let serialisedLocation = JsonConvert.SerializeObject(location)
+        let deserialisedLocation = JsonConvert.DeserializeObject<GeodesicLocation>(serialisedLocation)
+        Assert.Equal(location, deserialisedLocation)
 
 type ``Geodesic Distances``()=
-
     [<Theory>]
     [<MemberData("TestData")>]
     member test.``Loaded test data``(lat1, lat2, long2, expected) =

@@ -2,7 +2,7 @@
 <package >
   <metadata>
     <id>GeographicLib.FSharp</id>
-    <version>0.0.160918.1416</version>
+    <version>0.0.160926.1737</version>
     <title>Portable GeographicLib for F#</title>
     <authors>Rob Lyndon</authors>
     <owners>roblyndon</owners>

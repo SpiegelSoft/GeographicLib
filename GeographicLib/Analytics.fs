@@ -1,9 +1,21 @@
 ﻿namespace GeographicLib
 
 open System
+open Newtonsoft.Json
+open Newtonsoft.Json.Linq
 
-[<Struct>]
-type GeodesicLocation(latitude : float<deg>, longitude : float<deg>) =
+type GeodesicLocationSerialiser() =
+    inherit JsonConverter()
+    override __.CanConvert(objectType) = objectType.Equals(typeof<GeodesicLocation>)
+    override __.WriteJson(_, _, _) = raise <| new NotImplementedException()
+    override __.CanWrite = false
+    override __.ReadJson(reader, _, _, _) =
+        let jsonObject = JObject.Load(reader)
+        let latitude = jsonObject.GetValue("Latitude").Value<float>()
+        let longitude = jsonObject.GetValue("Longitude").Value<float>()
+        new GeodesicLocation(latitude * 1.0<deg>, longitude * 1.0<deg>) :> obj
+
+and [<Struct; StructuralEquality; NoComparison; JsonConverter(typeof<GeodesicLocationSerialiser>)>] GeodesicLocation(latitude : float<deg>, longitude : float<deg>) =
     member __.Latitude = if abs latitude > 90.0<deg> then Double.NaN |> LanguagePrimitives.FloatWithMeasure else latitude
     member __.Longitude = longitude
 
