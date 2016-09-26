@@ -3,7 +3,7 @@
 open System.Runtime.InteropServices
 open System
 
-module Utilities =
+module internal Utilities =
     let inline swap<'a> (x : 'a byref) (y : 'a byref) =
         let temp = x
         x <- y
@@ -31,13 +31,13 @@ module MathLib =
 
     [<Struct>]
     type ValueAndError(value : float<deg>, error : float<deg>) =
-        member this.Value = value
-        member this.Error = error
-    let liftToKeepUnits f (arg : float<'u>) : float<'u> =
+        member __.Value = value
+        member __.Error = error
+    let private liftToKeepUnits f (arg : float<'u>) : float<'u> =
         float arg |> f |> LanguagePrimitives.FloatWithMeasure
-    let liftToKeepUnits2 f (arg1 : float<'u>, arg2 : float<'u>) : float<'u> =
+    let private liftToKeepUnits2 f (arg1 : float<'u>, arg2 : float<'u>) : float<'u> =
         (float arg1, float arg2) |> f |> LanguagePrimitives.FloatWithMeasure
-    let remainder = Math.IEEERemainder |> liftToKeepUnits2
+    let private remainder = Math.IEEERemainder |> liftToKeepUnits2
     let sum(u : float<deg>, v : float<deg>) =
         let s = u + v;
         let mutable up = s - v;

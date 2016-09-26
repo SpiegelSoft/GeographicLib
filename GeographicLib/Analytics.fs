@@ -4,8 +4,8 @@ open System
 
 [<Struct>]
 type GeodesicLocation(latitude : float<deg>, longitude : float<deg>) =
-    member this.Latitude = if abs latitude > 90.0<deg> then Double.NaN |> LanguagePrimitives.FloatWithMeasure else latitude
-    member this.Longitude = longitude
+    member __.Latitude = if abs latitude > 90.0<deg> then Double.NaN |> LanguagePrimitives.FloatWithMeasure else latitude
+    member __.Longitude = longitude
 
 type EllipticFunction(k2 : float, ?alpha2 : float, ?kp2 : float, ?alphap2 : float) =
     let alpha2 = defaultArg alpha2 0.0
@@ -113,7 +113,7 @@ type Ellipsoid(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     static member WGS84 = Ellipsoid(Constants.WGS84_a, Constants.WGS84_f)
 
 [<System.FlagsAttribute>]
-type PermissionFlags = 
+type internal PermissionFlags = 
     CapNone         = 0b0000000000000000
     | CapC1         = 0b0000000000000001
     | CapC1p        = 0b0000000000000010     
@@ -124,7 +124,7 @@ type PermissionFlags =
     | OutAll        = 0b0111111110000000
     | OutMask       = 0b1111111110000000
                     
-type Mask =         
+type internal Mask =         
     None            = 0b0000000000000000
     | Latitude      = 0b0000000010000000
     | Longitude     = 0b0000000100001000
@@ -899,7 +899,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
 
     static member WGS84 = Geodesic(Constants.WGS84_a, Constants.WGS84_f)
 
-    member this.Distance (location1 : GeodesicLocation) (location2 : GeodesicLocation) =
+    member __.Distance (location1 : GeodesicLocation) (location2 : GeodesicLocation) =
         let mutable t, tg, tm, s12, a = 0.0, 0.0<deg>, 0.0<m>, 0.0<m>, 0.0<m^2>
         let s = GenInverse (location1, location2) (int Mask.Distance) &s12 &tg &tg &tm &t &t &a
         s12

@@ -11,7 +11,7 @@ type ``Geodesic Distances``()=
     [<Theory>]
     [<MemberData("TestData")>]
     member test.``Loaded test data``(lat1, lat2, long2, expected) =
-        let geo = new Geodesic(Constants.WGS84_a, Constants.WGS84_f)
+        let geo = Geodesic.WGS84
         let actual = geo.Distance (new GeodesicLocation(lat1, 0.0<deg>)) (new GeodesicLocation(lat2, long2))
         Assert.Equal(expected/1.0<m>, actual/1.0<m>, 4)
 

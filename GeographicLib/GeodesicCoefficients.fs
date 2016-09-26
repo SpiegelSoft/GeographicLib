@@ -2,7 +2,7 @@
 
 open System
 
-module GeodesicCoefficients =
+module internal GeodesicCoefficients =
     let GeodesicOrder =
         match Constants.Precision with
         | 2 -> 6

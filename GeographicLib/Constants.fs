@@ -6,7 +6,7 @@ type LowToHighRatio =
         new(ratio : float) = { Ratio = if ratio <= 1.0 then ratio else 1.0 / ratio }
     end
 
-module Constants = 
+module internal Constants = 
     [<Literal>]
     let WGS84_a = 6378137.0<m>
     let WGS84_f = LowToHighRatio(1.0 / ( 298257223563.0 / 1000000000.0 ))

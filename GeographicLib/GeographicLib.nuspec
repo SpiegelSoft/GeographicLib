@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>GeographicLib.FSharp</id>
+    <version>0.0.160918.1416</version>
+    <title>Portable GeographicLib for F#</title>
+    <authors>Rob Lyndon</authors>
+    <owners>roblyndon</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>This is a port of GeographicLib into a portable Xamarin-compatible F# library.</description>
+    <releaseNotes>Changed the permission scope of the Geodesic type.</releaseNotes>
+    <copyright>Copyright 2016</copyright>
+    <tags>F# Geodesic Mapping</tags>
+  </metadata>
+</package>
