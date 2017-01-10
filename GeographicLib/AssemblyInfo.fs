@@ -8,12 +8,12 @@ open System.Runtime.InteropServices
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[<assembly: AssemblyTitle("GeographicLib")>]
-[<assembly: AssemblyDescription("")>]
-[<assembly: AssemblyConfiguration("")>]
-[<assembly: AssemblyCompany("")>]
+[<assembly: AssemblyTitle("GeographicLib.FSharp")>]
+[<assembly: AssemblyDescription("Fluent interface for building Xamarin Forms pages in F# using ReactiveUI.")>]
+[<assembly: AssemblyCompany("SpiegelSoft Ltd")>]
 [<assembly: AssemblyProduct("GeographicLib")>]
-[<assembly: AssemblyCopyright("Copyright ©  2015")>]
+[<assembly: AssemblyCopyright("Copyright © 2017")>]
+[<assembly: AssemblyConfiguration("")>]
 [<assembly: AssemblyTrademark("")>]
 [<assembly: AssemblyCulture("")>]
 [<assembly: NeutralResourcesLanguage("en")>]
@@ -28,8 +28,7 @@ open System.Runtime.InteropServices
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [<assembly: AssemblyVersion("1.0.*")>]
-[<assembly: AssemblyVersion("0.0.160926.1737")>]
-[<assembly: AssemblyFileVersion("0.0.160926.1737")>]
+[<assembly: AssemblyInformationalVersion("1.0.0.0")>]
 
 do
     ()

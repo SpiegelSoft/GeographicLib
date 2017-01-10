@@ -1,11 +1,13 @@
 <?xml version="1.0"?>
 <package >
   <metadata>
-    <id>GeographicLib.FSharp</id>
-    <version>0.0.160926.1737</version>
-    <title>Portable GeographicLib for F#</title>
-    <authors>Rob Lyndon</authors>
-    <owners>roblyndon</owners>
+    <id>$id$</id>
+    <version>$version$</version>
+    <title>$title$</title>
+    <authors>$author$</authors>
+    <owners>$author$</owners>
+	<licenseUrl>http://opensource.org/licenses/MIT</licenseUrl>
+	<projectUrl>https://github.com/SpiegelSoft/GeographicLib.FSharp</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>This is a port of GeographicLib into a portable Xamarin-compatible F# library.</description>
     <releaseNotes>Changed the permission scope of the Geodesic type.</releaseNotes>
