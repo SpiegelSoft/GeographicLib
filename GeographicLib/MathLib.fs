@@ -10,13 +10,9 @@ module internal Utilities =
         y <- temp
 
 module MathLib =
-    let degreesPerRadian = 1.0<deg/rad> * 180.0/Math.PI
-    let radiansPerDegree = 1.0</deg> * Math.PI/180.0
-    let radians (x : float<deg>) = x * radiansPerDegree
-    let degreesFromRadians (x : float<rad>) = x * degreesPerRadian
-    let degrees (x : float) = x * degreesPerRadian * 1.0<rad>
-    let sin (x : float<deg>) = x |> radians |> float |> Math.Sin
-    let cos (x : float<deg>) = x |> radians |> float |> Math.Cos
+    let degrees (x : float) = x*1.0<rad> |> UnitConversion.degrees
+    let sin (x : float<deg>) = x |> UnitConversion.radians |> float |> Math.Sin
+    let cos (x : float<deg>) = x |> UnitConversion.radians |> float |> Math.Cos
     let hypot (x, y) =
         let mutable x = abs x
         let y = abs y

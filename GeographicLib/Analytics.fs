@@ -19,136 +19,138 @@ and [<Struct; StructuralEquality; NoComparison; JsonConverter(typeof<GeodesicLoc
     member __.Latitude = if abs latitude > 90.0<deg> then Double.NaN |> LanguagePrimitives.FloatWithMeasure else latitude
     member __.Longitude = longitude
 
-type EllipticFunction(k2 : float, ?alpha2 : float, ?kp2 : float, ?alphap2 : float) =
-    let alpha2 = defaultArg alpha2 0.0
-    let kp2 = defaultArg kp2 1.0 - k2
-    let alphap2 = defaultArg alphap2 1.0 - alpha2
+module internal Analytics =
+    type EllipticFunction(k2 : float, ?alpha2 : float, ?kp2 : float, ?alphap2 : float) =
+        let alpha2 = defaultArg alpha2 0.0
+        let kp2 = defaultArg kp2 1.0 - k2
+        let alphap2 = defaultArg alphap2 1.0 - alpha2
 
-    let RF(x, y) =
-        let tolRG0 = 2.7 * sqrt(MathLib.epsilon * 0.01)
-        let (xn, yn) = (sqrt x, sqrt y)
-        let mutable (xn, yn) = (max xn yn, min xn yn)
-        while abs(xn-yn) > tolRG0 * xn do
-            let t = (xn + yn) / 2.0
-            yn <- sqrt (xn * yn)
-            xn <- t
-        Math.PI / (xn + yn)
+        let RF(x, y) =
+            let tolRG0 = 2.7 * sqrt(MathLib.epsilon * 0.01)
+            let (xn, yn) = (sqrt x, sqrt y)
+            let mutable (xn, yn) = (max xn yn, min xn yn)
+            while abs(xn-yn) > tolRG0 * xn do
+                let t = (xn + yn) / 2.0
+                yn <- sqrt (xn * yn)
+                xn <- t
+            Math.PI / (xn + yn)
 
-    let RG(x, y) =
-        let tolRG0 = 2.7 * sqrt(MathLib.epsilon * 0.01)
-        let x0 = sqrt(max x y)
-        let y0 = sqrt(min x y)
-        let mutable xn = x0
-        let mutable yn = y0
-        let mutable s = 0.0
-        let mutable mul = 0.25
-        while abs(xn - yn) > tolRG0 * xn do
-            let mutable t = (xn + yn) / 2.0
-            yn <- sqrt(xn * yn)
-            xn <- t
-            mul <- 2.0 * mul
-            t <- xn - yn
-            s <- s + mul * t * t
-        (MathLib.sq( (x0 + y0) / 2.0 ) - s) * Math.PI / (2.0 * (xn + yn))
+        let RG(x, y) =
+            let tolRG0 = 2.7 * sqrt(MathLib.epsilon * 0.01)
+            let x0 = sqrt(max x y)
+            let y0 = sqrt(min x y)
+            let mutable xn = x0
+            let mutable yn = y0
+            let mutable s = 0.0
+            let mutable mul = 0.25
+            while abs(xn - yn) > tolRG0 * xn do
+                let mutable t = (xn + yn) / 2.0
+                yn <- sqrt(xn * yn)
+                xn <- t
+                mul <- 2.0 * mul
+                t <- xn - yn
+                s <- s + mul * t * t
+            (MathLib.sq( (x0 + y0) / 2.0 ) - s) * Math.PI / (2.0 * (xn + yn))
 
-    let RD(x, y, z) =
-        let tolRD = Math.Pow(0.2 * MathLib.epsilon * 0.01, 1.0 / 8.0)
-        let A0 = (x + y + 3.0*z) / 5.0
-        let mutable An = A0
-        let Q = max(max (abs(A0-x)) (abs(A0-y))) (abs(A0-z)) / tolRD
-        let mutable x0 = x
-        let mutable y0 = y
-        let mutable z0 = z
-        let mutable mul = 1.0
-        let mutable s = 0.0
-        while Q >= mul * abs(An) do
-            let lam = sqrt(x0)*sqrt(y0) + sqrt(y0)*sqrt(z0) + sqrt(z0)*sqrt(x0)
-            s <- s + 1.0/(mul * sqrt(z0) * (z0 + lam))
-            An <- (An + lam)/4.0
-            x0 <- (x0 + lam)/4.0
-            y0 <- (y0 + lam)/4.0
-            z0 <- (z0 + lam)/4.0
-            mul <- mul * 4.0
+        let RD(x, y, z) =
+            let tolRD = Math.Pow(0.2 * MathLib.epsilon * 0.01, 1.0 / 8.0)
+            let A0 = (x + y + 3.0*z) / 5.0
+            let mutable An = A0
+            let Q = max(max (abs(A0-x)) (abs(A0-y))) (abs(A0-z)) / tolRD
+            let mutable x0 = x
+            let mutable y0 = y
+            let mutable z0 = z
+            let mutable mul = 1.0
+            let mutable s = 0.0
+            while Q >= mul * abs(An) do
+                let lam = sqrt(x0)*sqrt(y0) + sqrt(y0)*sqrt(z0) + sqrt(z0)*sqrt(x0)
+                s <- s + 1.0/(mul * sqrt(z0) * (z0 + lam))
+                An <- (An + lam)/4.0
+                x0 <- (x0 + lam)/4.0
+                y0 <- (y0 + lam)/4.0
+                z0 <- (z0 + lam)/4.0
+                mul <- mul * 4.0
 
-        let X = (A0 - x) / (mul * An)
-        let Y = (A0 - y) / (mul * An)
-        let Z = -(X + Y) / 3.0
-        let E2 = X*Y - 6.0*Z*Z
-        let E3 = (3.0*X*Y - 8.0*Z*Z)*Z
-        let E4 = 3.0 * (X*Y - Z*Z) * Z*Z
-        let E5 = X*Y*Z*Z*Z
-        // http://dlmf.nist.gov/19.36.E2
-        // Polynomial is
-        // (1 - 3*E2/14 + E3/6 + 9*E2^2/88 - 3*E4/22 - 9*E2*E3/52 + 3*E5/26
-        //    - E2^3/16 + 3*E3^2/40 + 3*E2*E4/20 + 45*E2^2*E3/272
-        //    - 9*(E3*E4+E2*E5)/68)
-        ((471240.0 - 540540.0 * E2) * E5 + (612612.0 * E2 - 540540.0 * E3 - 556920.0) * E4 +
-            E3 * (306306.0 * E3 + E2 * (675675.0 * E2 - 706860.0) + 680680.0) +
-            E2 * ((417690.0 - 255255.0 * E2) * E2 - 875160.0) + 4084080.0) / (4084080.0 * mul * An * sqrt(An)) + 3.0 * s
+            let X = (A0 - x) / (mul * An)
+            let Y = (A0 - y) / (mul * An)
+            let Z = -(X + Y) / 3.0
+            let E2 = X*Y - 6.0*Z*Z
+            let E3 = (3.0*X*Y - 8.0*Z*Z)*Z
+            let E4 = 3.0 * (X*Y - Z*Z) * Z*Z
+            let E5 = X*Y*Z*Z*Z
+            // http://dlmf.nist.gov/19.36.E2
+            // Polynomial is
+            // (1 - 3*E2/14 + E3/6 + 9*E2^2/88 - 3*E4/22 - 9*E2*E3/52 + 3*E5/26
+            //    - E2^3/16 + 3*E3^2/40 + 3*E2*E4/20 + 45*E2^2*E3/272
+            //    - 9*(E3*E4+E2*E5)/68)
+            ((471240.0 - 540540.0 * E2) * E5 + (612612.0 * E2 - 540540.0 * E3 - 556920.0) * E4 +
+                E3 * (306306.0 * E3 + E2 * (675675.0 * E2 - 706860.0) + 680680.0) +
+                E2 * ((417690.0 - 255255.0 * E2) * E2 - 875160.0) + 4084080.0) / (4084080.0 * mul * An * sqrt(An)) + 3.0 * s
 
-    let eps = k2 / MathLib.sq(sqrt(kp2) + 1.0)
-    let (Kc, Ec, Dc) = if k2 = 0.0 then (MathLib.piOver2, MathLib.piOver2, MathLib.piOver2 / 2.0) else ((if kp2 = 0.0 then Double.PositiveInfinity else RF(kp2, 1.0)), (if kp2 = 0.0 then 1.0 else 2.0 * RG(kp2, 1.0)), (if kp2 = 0.0 then Double.PositiveInfinity else RD(0.0, kp2, 1.0) / 3.0)) 
+        let eps = k2 / MathLib.sq(sqrt(kp2) + 1.0)
+        let (Kc, Ec, Dc) = if k2 = 0.0 then (MathLib.piOver2, MathLib.piOver2, MathLib.piOver2 / 2.0) else ((if kp2 = 0.0 then Double.PositiveInfinity else RF(kp2, 1.0)), (if kp2 = 0.0 then 1.0 else 2.0 * RG(kp2, 1.0)), (if kp2 = 0.0 then Double.PositiveInfinity else RD(0.0, kp2, 1.0) / 3.0)) 
 
-type AlbersEqualArea(semiMajorAxis : float<m>, flattening : LowToHighRatio, sinLat1 : float, cosLat1 : float, sinLat2 : float, cosLat2 : float, k1 : float) =
-    let a = semiMajorAxis
-    let f = flattening.Ratio
-    let fm = 1.0 - f
-    let e2 = f * (2.0 - f)
-    let e = e2 |> abs |> sqrt
-    let atanhee(x) = if f > 0.0 then MathLib.atanh(e * x) / e else if f < 0.0 then (atan2 (e * abs x) (if x < 0.0 then -1.0 else 1.0))/e else x
-    let e2m = 1.0 - e2
-    let qZ = 1.0 + e2m * atanhee(1.0)
-    let qx = qZ / (2.0 * e2m)
+    type AlbersEqualArea(semiMajorAxis : float<m>, flattening : LowToHighRatio, sinLat1 : float, cosLat1 : float, sinLat2 : float, cosLat2 : float, k1 : float) =
+        let a = semiMajorAxis
+        let f = flattening.Ratio
+        let fm = 1.0 - f
+        let e2 = f * (2.0 - f)
+        let e = e2 |> abs |> sqrt
+        let atanhee(x) = if f > 0.0 then MathLib.atanh(e * x) / e else if f < 0.0 then (atan2 (e * abs x) (if x < 0.0 then -1.0 else 1.0))/e else x
+        let e2m = 1.0 - e2
+        let qZ = 1.0 + e2m * atanhee(1.0)
+        let qx = qZ / (2.0 * e2m)
 
-type TransverseMercator(semiMajorAxis : float<m>, flattening : LowToHighRatio, scale : float) =
-    let a = semiMajorAxis
-    let f = flattening.Ratio
-    let e2 = f * (2.0 - f)
-    let es = (if f < 0.0 then -1.0 else 1.0) * sqrt(abs(e2))
-    let e2m = 1.0 - e2
-    let c =  sqrt(e2m) * exp(MathLib.eatanhe(1.0, es)) 
-    let n = f / (2.0  - f)
+    type TransverseMercator(semiMajorAxis : float<m>, flattening : LowToHighRatio, scale : float) =
+        let a = semiMajorAxis
+        let f = flattening.Ratio
+        let e2 = f * (2.0 - f)
+        let es = (if f < 0.0 then -1.0 else 1.0) * sqrt(abs(e2))
+        let e2m = 1.0 - e2
+        let c =  sqrt(e2m) * exp(MathLib.eatanhe(1.0, es)) 
+        let n = f / (2.0  - f)
 
-type Ellipsoid(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
-    let a = semiMajorAxis
-    let f = flattening.Ratio
-    let f1 = 1.0 - f
-    let f12 = sqrt f1
-    let e2 = f * (2.0 - f)
-    let es = (if f < 0.0 then -1.0 else 1.0) * sqrt(abs(e2))
-    let e12 = e2 / (1.0 - e2)
-    let n = f / (2.0  - f)
-    let b = a * f1
-    let tm = TransverseMercator(a, flattening, 1.0)
-    let e11 = EllipticFunction(-e12)
-    let au = AlbersEqualArea(a, flattening, 0.0, 1.0, 0.0, 1.0, 1.0)
-    static member WGS84 = Ellipsoid(Constants.WGS84_a, Constants.WGS84_f)
+    type Ellipsoid(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
+        let a = semiMajorAxis
+        let f = flattening.Ratio
+        let f1 = 1.0 - f
+        let f12 = sqrt f1
+        let e2 = f * (2.0 - f)
+        let es = (if f < 0.0 then -1.0 else 1.0) * sqrt(abs(e2))
+        let e12 = e2 / (1.0 - e2)
+        let n = f / (2.0  - f)
+        let b = a * f1
+        let tm = TransverseMercator(a, flattening, 1.0)
+        let e11 = EllipticFunction(-e12)
+        let au = AlbersEqualArea(a, flattening, 0.0, 1.0, 0.0, 1.0, 1.0)
+        static member WGS84 = Ellipsoid(Constants.WGS84_a, Constants.WGS84_f)
 
-[<System.FlagsAttribute>]
-type internal PermissionFlags = 
-    CapNone         = 0b0000000000000000
-    | CapC1         = 0b0000000000000001
-    | CapC1p        = 0b0000000000000010     
-    | CapC2         = 0b0000000000000100
-    | CapC3         = 0b0000000000001000
-    | CapC4         = 0b0000000000010000
-    | CapAll        = 0b0000000000011111
-    | OutAll        = 0b0111111110000000
-    | OutMask       = 0b1111111110000000
+    [<System.FlagsAttribute>]
+    type internal PermissionFlags = 
+        CapNone         = 0b0000000000000000
+        | CapC1         = 0b0000000000000001
+        | CapC1p        = 0b0000000000000010     
+        | CapC2         = 0b0000000000000100
+        | CapC3         = 0b0000000000001000
+        | CapC4         = 0b0000000000010000
+        | CapAll        = 0b0000000000011111
+        | OutAll        = 0b0111111110000000
+        | OutMask       = 0b1111111110000000
                     
-type internal Mask =         
-    None            = 0b0000000000000000
-    | Latitude      = 0b0000000010000000
-    | Longitude     = 0b0000000100001000
-    | Azimuth       = 0b0000001000000000
-    | Distance      = 0b0000010000000001
-    | DistanceIn    = 0b0000100000000011
-    | ReducedLength = 0b0001000000000101
-    | GeodesicScale = 0b0010000000000101
-    | Area          = 0b0100000000010000
-    | LongUnroll    = 0b1000000000010000
-    | All           = 0b0111111110011111
+    type internal Mask =         
+        None            = 0b0000000000000000
+        | Latitude      = 0b0000000010000000
+        | Longitude     = 0b0000000100001000
+        | Azimuth       = 0b0000001000000000
+        | Distance      = 0b0000010000000001
+        | DistanceIn    = 0b0000100000000011
+        | ReducedLength = 0b0001000000000101
+        | GeodesicScale = 0b0010000000000101
+        | Area          = 0b0100000000010000
+        | LongUnroll    = 0b1000000000010000
+        | All           = 0b0111111110011111
 
+open Analytics
 //   \brief %Geodesic calculations
 //   
 //   The shortest path between two points on a ellipsoid at (\e lat1, \e lon1)
@@ -696,7 +698,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         let dn1 = sqrt (1.0 + ep2 * MathLib.sq(sbet1))
         let dn2 = sqrt (1.0 + ep2 * MathLib.sq(sbet2))
 
-        let lam12 = MathLib.radians lon12
+        let lam12 = UnitConversion.radians lon12
         let slam12, clam12 = MathLib.sincos lon12
         let mutable a12, sig12, calp1, salp1, calp2, salp2 = 0.0<deg>, 0.0, 0.0, 0.0, 0.0, 0.0
 
@@ -725,7 +727,7 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
                 a12 <- MathLib.degrees sig12
             else
                 // m12 < 0, i.e., prolate and too close to anti-podal
-                meridian <- false;
+                meridian <- false
         
         let mutable omg12 = 0.0
         if not meridian && sbet1 = 0.0 && (f <= 0.0 || lam12 <= Math.PI - f * Math.PI) then
