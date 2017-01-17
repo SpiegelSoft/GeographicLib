@@ -14,10 +14,17 @@ type ``GeodesicLocation serialisation``()=
         let deserialisedLocation = JsonConvert.DeserializeObject<GeodesicLocation>(serialisedLocation)
         Assert.Equal(location, deserialisedLocation)
 
-type ``Geodesic Distances``()=
+type ``Geodesic Distances``() =
+    [<Theory>]
+    [<InlineData(54.1, 0.02)>]
+    member __.``Zero distances``(lat, long) =
+        let location = new GeodesicLocation(lat * 1.0<deg> - 0.001<deg>, long * 1.0<deg> + 0.0001<deg>)
+        let result = Geodesic.WGS84.Distance location location
+        Assert.Equal(result/1.0<m>, 0.0, 8)
+
     [<Theory>]
     [<MemberData("TestData")>]
-    member test.``Loaded test data``(lat1, lat2, long2, expected) =
+    member __.``Loaded test data`` (lat1, lat2, long2, expected) =
         let geo = Geodesic.WGS84
         let actual = geo.Distance (new GeodesicLocation(lat1, 0.0<deg>)) (new GeodesicLocation(lat2, long2))
         Assert.Equal(expected/1.0<m>, actual/1.0<m>, 4)

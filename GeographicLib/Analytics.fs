@@ -643,8 +643,18 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         // east-going and meridional geodesics.
         // If very close to being on the same half-meridian, then make it so.
         let mutable lon12 = MathLib.angDiff(location1.Longitude, location2.Longitude) |> MathLib.angRound
+        let mutable lon12s = lon12
         let mutable lonsign = if lon12 >= 0.0<deg> then 1.0 else -1.0
         lon12 <- lon12 * lonsign;
+        // If very close to being on the same half-meridian, then make it so.
+        lon12s <- MathLib.angRound((180.0<deg> - lon12) - lonsign * lon12s)
+        let lam12 = UnitConversion.radians lon12
+        let slam12, clam12 = 
+            match lon12 > 90.0<deg> with
+            | true -> 
+                let sincos = MathLib.sincos lon12s; 
+                (fst sincos, -snd sincos)
+            | false -> MathLib.sincos lon12
         // If really close to the equator, treat as on equator.
         let mutable lat1 = MathLib.angRound(location1.Latitude)
         let mutable lat2 = MathLib.angRound(location2.Latitude)
@@ -698,8 +708,6 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         let dn1 = sqrt (1.0 + ep2 * MathLib.sq(sbet1))
         let dn2 = sqrt (1.0 + ep2 * MathLib.sq(sbet2))
 
-        let lam12 = UnitConversion.radians lon12
-        let slam12, clam12 = MathLib.sincos lon12
         let mutable a12, sig12, calp1, salp1, calp2, salp2 = 0.0<deg>, 0.0, 0.0, 0.0, 0.0, 0.0
 
         let mutable meridian = (lat1 = -90.0<deg> || slam12 = 0.0)
@@ -722,8 +730,8 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
                     s12x <- 0.0<m>
                     m12x <- 0.0<m>
                     sig12 <- 0.0
-                m12x <- m12b * b
-                s12x <- s12b * b
+                m12x <- m12x * b / 1.0<m>
+                s12x <- s12x * b / 1.0<m>
                 a12 <- MathLib.degrees sig12
             else
                 // m12 < 0, i.e., prolate and too close to anti-podal
