@@ -20,6 +20,54 @@ and [<Struct; StructuralEquality; NoComparison; JsonConverter(typeof<GeodesicLoc
     member __.Longitude = longitude
 
 module internal Analytics =
+
+    let generateA3Polynomial n nCoeff (coeff : float[]) nArray =
+        let mutable k, o = 0, 0
+        let array = Array.zeroCreate nArray
+        for j in (nCoeff - 1)..(-1)..0 do
+            let m = min (nCoeff - j - 1) j
+            array.[k] <- MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
+            k <- k + 1
+            o <- o + m + 2
+        array
+
+    let generateC3Polynomial n nCoeff (coeff : float[]) nArray =
+        let mutable o, k = 0, 0
+        let array = Array.zeroCreate nArray
+        for l in [|1..nCoeff - 1|] do
+            for j in Array.rev [|l..nCoeff - 1|] do
+                let m = min (nCoeff - j - 1) j
+                array.[k] <- MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
+                k <- k + 1
+                o <- o + m + 2
+        array
+
+    let generateC4Polynomial n nCoeff (coeff : float[]) nArray =
+        let mutable o, k = 0, 0
+        let array = Array.zeroCreate nArray
+        for l in [|0..nCoeff - 1|] do
+            for j in Array.rev [|l..nCoeff - 1|] do
+                let m = nCoeff - j - 1
+                array.[k] <- MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
+                k <- k + 1
+                o <- o + m + 2
+        array
+
+    let A3x n = generateA3Polynomial n GeodesicCoefficients.nA3 GeodesicCoefficients.A3Coeff GeodesicCoefficients.nA3x
+    let C3x n = generateC3Polynomial n GeodesicCoefficients.nC3 GeodesicCoefficients.C3Coeff GeodesicCoefficients.nC3x
+    let C4x n = generateC4Polynomial n GeodesicCoefficients.nC4 GeodesicCoefficients.C4Coeff GeodesicCoefficients.nC4x
+    let A3f n eps = MathLib.polyval(GeodesicCoefficients.nA3 - 1, A3x n, eps)
+    let C3f n eps (c : float[]) =
+        // Evaluate C3 coeffs
+        // Elements c[1] thru c[nC3_ - 1] are set
+        let mutable mult = 1.0
+        let mutable o = 0
+        for l in [|1..(GeodesicCoefficients.nC3 - 1)|] do
+            let m = GeodesicCoefficients.nC3 - l - 1 // order of polynomial in eps
+            mult <- mult * eps
+            c.[l] <- mult * MathLib.polyval(m, (C3x n).[o..], eps)
+            o <- o + m + 1
+
     type EllipticFunction(k2 : float, ?alpha2 : float, ?kp2 : float, ?alphap2 : float) =
         let alpha2 = defaultArg alpha2 0.0
         let kp2 = defaultArg kp2 1.0 - k2
@@ -188,7 +236,16 @@ type internal GeodesicLine(geodesic: Geodesic, location: GeodesicLocation, azimu
     let s, c = Math.Sin(B11), Math.Cos(B11)
     let stau1 = ssig1 * c + csig1 * s
     let ctau1 = csig1 * c - ssig1 * s
-    member __.Position (distance: float<m>, lat2: byref<float>, lon2: byref<float>, azi2: byref<float>) =
+    let A2m1 = GeodesicCoefficients.A2m1f(eps)
+    let C2a = Array.create (GeodesicCoefficients.nC2 + 1) 0.0
+    do GeodesicCoefficients.C2Fourier eps C2a
+    let B21 = MathLib.sinCosSeries(true, ssig1, csig1, C2a, GeodesicCoefficients.nC2) 
+    let C3a = Array.create GeodesicCoefficients.nC3 0.0
+    let n = f / (2.0 - f)
+    do C3f n eps C3a
+    let A3c = -f * salp0 * A3f n eps
+    let B31 = MathLib.sinCosSeries(true, ssig1, csig1, C3a, GeodesicCoefficients.nC3 - 1)
+    member __.Position (distance: float<m>, lat2: byref<float<deg>>, lon2: byref<float<deg>>, azi2: byref<float<deg>>) =
         let tau12 = distance / (b * (1.0 + A1m1))
         let s, c = sin(tau12), cos(tau12)
         let C1pa = Array.create(GeodesicCoefficients.nC1p + 1) 0.0
@@ -234,9 +291,12 @@ type internal GeodesicLine(geodesic: Geodesic, location: GeodesicLocation, azimu
         let somg2, comg2 = salp0 * ssig2, csig2
         let E = MathLib.copySign(1.0, salp0)
         let omg12 = Math.Atan2(somg2 * comg1 - comg2 * somg1, comg2 * comg1 + somg2 * somg1)
-        let C3a = Array.create  GeodesicCoefficients.nC3 0.0
-        //let lam12 = omg12 + A3c * sig12 + (MathLib.sinCosSeries(true, ssig2, csig2, C3a, GeodesicCoefficients.nC3 - 1) - _B31))
-        omg12 |> ignore
+        let C3a = Array.create GeodesicCoefficients.nC3 0.0
+        let lam12 = omg12 + A3c * (sig12 + (MathLib.sinCosSeries(true, ssig2, csig2, C3a, GeodesicCoefficients.nC3 - 1) - B31))
+        let lon12 = lam12 * 1.0<rad> |> UnitConversion.degrees
+        lon2 <- MathLib.angNormalise(lon1) + MathLib.angNormalise(lon12) |> MathLib.angNormalise
+        lat2 <- 1.0<rad> * atan2 sbet2 (f1 * cbet2) |> UnitConversion.degrees
+        azi2 <- 1.0<rad> * atan2 salp2 calp2 |> UnitConversion.degrees
 
 //   \brief %Geodesic calculations
 //   
@@ -393,45 +453,7 @@ and Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
     let b = a * f1
     let c2 = (MathLib.sq(a) + MathLib.sq(b) * MathLib.eatanhe(1.0, (if f < 0.0 then -1.0 else 1.0) * sqrt(abs(e2))) / e2) / 2.0
     let etol2 = 0.1 * tol2 / (sqrt(max 0.001 (abs f) * (min 1.0 1.0 - f/2.0) / 2.0))
-
-    let generateA3Polynomial nCoeff (coeff : float[]) nArray =
-        let mutable k, o = 0, 0
-        let array = Array.zeroCreate nArray
-        for j in (nCoeff - 1)..(-1)..0 do
-            let m = min (nCoeff - j - 1) j
-            array.[k] <- MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
-            k <- k + 1
-            o <- o + m + 2
-        array
-
-    let generateC3Polynomial nCoeff (coeff : float[]) nArray =
-        let mutable o, k = 0, 0
-        let array = Array.zeroCreate nArray
-        for l in [|1..nCoeff - 1|] do
-            for j in Array.rev [|l..nCoeff - 1|] do
-                let m = min (nCoeff - j - 1) j
-                array.[k] <- MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
-                k <- k + 1
-                o <- o + m + 2
-        array
-
-    let generateC4Polynomial nCoeff (coeff : float[]) nArray =
-        let mutable o, k = 0, 0
-        let array = Array.zeroCreate nArray
-        for l in [|0..nCoeff - 1|] do
-            for j in Array.rev [|l..nCoeff - 1|] do
-                let m = nCoeff - j - 1
-                array.[k] <- MathLib.polyval(m, coeff.[o..], n) / coeff.[o + m + 1]
-                k <- k + 1
-                o <- o + m + 2
-        array
-        
-    let A3x = generateA3Polynomial GeodesicCoefficients.nA3 GeodesicCoefficients.A3Coeff GeodesicCoefficients.nA3x
-    let C3x = generateC3Polynomial GeodesicCoefficients.nC3 GeodesicCoefficients.C3Coeff GeodesicCoefficients.nC3x
-    let C4x = generateC4Polynomial GeodesicCoefficients.nC4 GeodesicCoefficients.C4Coeff GeodesicCoefficients.nC4x
-
-    let A3f eps = MathLib.polyval(GeodesicCoefficients.nA3 - 1, A3x, eps)
-
+       
     let C4f eps (c : float[]) =
         // Evaluate C4 coeffs
         // Elements c[0] thru c[nC4_ - 1] are set
@@ -439,20 +461,9 @@ and Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         let mutable o = 0
         for l in [|0..(GeodesicCoefficients.nC4 - 1)|] do// l is index of C4[l]
             let m = GeodesicCoefficients.nC4 - l - 1 // order of polynomial in eps
-            c.[l] <- mult * MathLib.polyval(m, C4x.[o..], eps)
+            c.[l] <- mult * MathLib.polyval(m, (C4x n).[o..], eps)
             o <- o + m + 1
             mult <- mult * eps
-
-    let C3f eps (c : float[]) =
-        // Evaluate C3 coeffs
-        // Elements c[1] thru c[nC3_ - 1] are set
-        let mutable mult = 1.0
-        let mutable o = 0
-        for l in [|1..(GeodesicCoefficients.nC3 - 1)|] do
-            let m = GeodesicCoefficients.nC3 - l - 1 // order of polynomial in eps
-            mult <- mult * eps
-            c.[l] <- mult * MathLib.polyval(m, C3x.[o..], eps)
-            o <- o + m + 1
 
     let Lengths (eps, sig12, ssig1, csig1, dn1, ssig2, csig2, dn2, cbet1, cbet2) outMask (s12b : float byref) (m12b : float byref) (m0 : float byref) (gs12 : float byref) (gs21 : float byref) (Ca : float[]) =
         let outMask = outMask &&& int PermissionFlags.OutMask
@@ -582,7 +593,7 @@ and Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
                 // x = dlong, y = dlat
                 let k2 = MathLib.sq(sbet1) * ep2
                 let eps = k2 / (2.0 * (1.0 + sqrt(1.0 + k2)) + k2)
-                lamscale <- f * cbet1 * A3f(eps) * Math.PI
+                lamscale <- f * cbet1 * (A3f n eps) * Math.PI
                 betscale <- lamscale * cbet1
                 x <- (lam12 - Math.PI) / lamscale
                 y <- sbet12a / betscale
@@ -705,9 +716,9 @@ and Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         let mutable B312, h0 = 0.0, 0.0
         let k2 = MathLib.sq(calp0) * ep2
         eps <- k2 / (2.0 * (1.0 + sqrt(1.0 + k2)) + k2)
-        C3f eps Ca
+        C3f n eps Ca
         B312 <- (MathLib.sinCosSeries(true, ssig2, csig2, Ca, GeodesicCoefficients.nC3 - 1) - MathLib.sinCosSeries(true, ssig1, csig1, Ca, GeodesicCoefficients.nC3 - 1))
-        h0 <- -f * A3f(eps)
+        h0 <- -f * A3f n eps
         domg12 <- salp0 * h0 * (sig12 + B312)
         lam12 <- omg12 + domg12
 
@@ -1020,5 +1031,7 @@ and Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         let mutable t, azi1, azi2, tm, s12, a = 0.0, 0.0<deg>, 0.0<deg>, 0.0<m>, 0.0<m>, 0.0<m^2>
         let _ = GenInverse (location1, location2) (int Mask.Distance) &s12 &azi1 &azi2 &tm &t &t &a
         azi1, azi2
-    member __.Location (location: GeodesicLocation) (azimuth: float<deg>) (distance: float<m>) =
-        0
+    member this.Location (location: GeodesicLocation) (azimuth: float<deg>) (distance: float<m>) =
+        let geodesicLine = new GeodesicLine(this, location, azimuth)
+        let mutable lat2, lon2, azi2 = 0.0<deg>, 0.0<deg>, 0.0<deg>
+        geodesicLine.Position(distance, &lat2, &lon2, &azi2)

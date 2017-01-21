@@ -1,6 +1,5 @@
 ﻿namespace GeographicLib
 
-open System.Runtime.InteropServices
 open System
 
 module internal Utilities =

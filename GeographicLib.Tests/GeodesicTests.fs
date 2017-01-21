@@ -16,8 +16,8 @@ type ``GeodesicLocation serialisation``()=
 
 type ``Geodesic Distances``() =
     [<Theory>]
-    [<InlineData(54.1, 0.02)>]
-    member __.``Zero distances``(lat, long) =
+    [<MemberData("TestData")>]
+    member __.``Zero distances``(lat, _: float, long, _: float) =
         let location = new GeodesicLocation(lat * 1.0<deg> - 0.001<deg>, long * 1.0<deg> + 0.0001<deg>)
         let result = Geodesic.WGS84.Distance location location
         Assert.Equal(result/1.0<m>, 0.0, 8)
