@@ -46,6 +46,7 @@ module MathLib =
     let rec getMachineEpsilon eps = if 1.0 + eps = 1.0 then eps else getMachineEpsilon ((abs eps) / 2.0)
     let eatanhe(x, es) = if es > 0.0 then es * atanh(es * x) else -es * atan(es * x)
     let sq(x : float<'a>) = x * x
+    let copySign(x, y) = abs x * (if y < 0.0 || (y = 0.0 && 1.0/y < 0.0) then -1.0 else 1.0)
     let minFloat = Double.Epsilon
     let epsilon = getMachineEpsilon 0.1
     let epsilonSquared = sq(epsilon)

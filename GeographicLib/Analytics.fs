@@ -151,6 +151,93 @@ module internal Analytics =
         | All           = 0b0111111110011111
 
 open Analytics
+type internal GeodesicLine(geodesic: Geodesic, location: GeodesicLocation, azimuth: float<deg>) = 
+    let tiny = geodesic.Tiny
+    let lat1, lon1 = location.Latitude, location.Longitude
+    let azi1 = MathLib.angNormalise azimuth
+    let salp1, calp1 = azi1 |> MathLib.angRound |> MathLib.sincos
+    let a, f = geodesic.SemiMajorAxis, geodesic.FlatteningRatio
+    let b, f1, ep2 = geodesic.Parameters
+    let mutable sbet1, cbet1 = lat1 |> MathLib.angRound |> MathLib.sincos
+    do 
+        sbet1 <- sbet1 * f1
+        MathLib.norm &sbet1 &cbet1
+        cbet1 <- Math.Max(tiny, cbet1)
+    let dn1 = sqrt(1.0 + ep2 * (sbet1 * sbet1))
+    let salp0, calp0 = salp1 * cbet1, MathLib.hypot(calp1, salp1 * sbet1)
+    // Evaluate sig with tan(bet1) = tan(sig1) * cos(alp1).
+    // sig = 0 is nearest northward crossing of equator.
+    // With bet1 = 0, alp1 = pi/2, we have sig1 = 0 (equatorial line).
+    // With bet1 =  pi/2, alp1 = -pi, sig1 =  pi/2
+    // With bet1 = -pi/2, alp1 =  0 , sig1 = -pi/2
+    // Evaluate omg1 with tan(omg1) = sin(alp0) * tan(sig1).
+    // With alp0 in (0, pi/2], quadrants for sig and omg coincide.
+    // No atan2(0,0) ambiguity at poles since cbet1 = +epsilon.
+    // With alp0 = 0, omg1 = 0 for alp1 = 0, omg1 = pi for alp1 = pi.
+    let somg1 = salp0 * sbet1
+    let comg1 = if sbet1 <> 0.0 || calp1 <> 0.0 then cbet1 * calp1 else 1.0
+    let mutable ssig1, csig1 = sbet1, comg1
+    do MathLib.norm &ssig1 &csig1
+    let k2 = calp0 * calp0 * ep2
+    let eps = k2 / (2.0 * (1.0 + sqrt(1.0 + k2)) + k2)
+    let A1m1 = GeodesicCoefficients.A1m1f(eps)
+    let Ca = Array.create GeodesicCoefficients.nC 0.0
+    do GeodesicCoefficients.C1Fourier eps Ca
+    let C1a = Array.create(GeodesicCoefficients.nC1 + 1) 0.0
+    let B11 = MathLib.sinCosSeries(true, ssig1, csig1, C1a, GeodesicCoefficients.nC1)
+    let s, c = Math.Sin(B11), Math.Cos(B11)
+    let stau1 = ssig1 * c + csig1 * s
+    let ctau1 = csig1 * c - ssig1 * s
+    member __.Position (distance: float<m>, lat2: byref<float>, lon2: byref<float>, azi2: byref<float>) =
+        let tau12 = distance / (b * (1.0 + A1m1))
+        let s, c = sin(tau12), cos(tau12)
+        let C1pa = Array.create(GeodesicCoefficients.nC1p + 1) 0.0
+        let mutable B12 = MathLib.sinCosSeries(true, stau1 * c + ctau1 * s, ctau1 * c - stau1 * s, C1pa, GeodesicCoefficients.nC1p)
+        let mutable sig12 = tau12 - (B12 - B11)
+        let mutable ssig12, csig12 = Math.Sin(sig12), Math.Cos(sig12)
+        if abs f > 0.01 then
+            // Reverted distance series is inaccurate for |f| > 1/100, so correct
+            // sig12 with 1 Newton iteration.  The following table shows the
+            // approximate maximum error for a = WGS_a() and various f relative to
+            // GeodesicExact.
+            //     erri = the error in the inverse solution (nm)
+            //     errd = the error in the direct solution (series only) (nm)
+            //     errda = the error in the direct solution (series + 1 Newton) (nm)
+            //
+            //       f     erri  errd errda
+            //     -1/5    12e6 1.2e9  69e6
+            //     -1/10  123e3  12e6 765e3
+            //     -1/20   1110 108e3  7155
+            //     -1/50  18.63 200.9 27.12
+            //     -1/100 18.63 23.78 23.37
+            //     -1/150 18.63 21.05 20.26
+            //      1/150 22.35 24.73 25.83
+            //      1/100 22.35 25.03 25.31
+            //      1/50  29.80 231.9 30.44
+            //      1/20   5376 146e3  10e3
+            //      1/10  829e3  22e6 1.5e6
+            //      1/5   157e6 3.8e9 280e6
+            let ssig2 = ssig1 * csig12 + csig1 * ssig12
+            let csig2 = csig1 * csig12 - ssig1 * ssig12
+            B12 <- MathLib.sinCosSeries(true, ssig2, csig2, C1a, GeodesicCoefficients.nC1)
+            let serr = (1.0 + A1m1) * (sig12 + (B12 - B11)) - (distance / b)
+            sig12 <- sig12 - serr / sqrt(1.0 + k2 * ssig2 * ssig2)
+            ssig12 <- sin(sig12); csig12 <- cos(sig12)
+        let ssig2 = ssig1 * csig12 + csig1 * ssig12
+        let mutable csig2 = csig1 * csig12 - ssig1 * ssig12
+        let dn2 = sqrt(1.0 + k2 * ssig2 * ssig2)
+        let sbet2 = calp0 * ssig2
+        let mutable cbet2 = MathLib.hypot(salp0, calp0 * csig2)
+        if cbet2 = 0.0 then 
+            cbet2 <- tiny; csig2 <- tiny
+        let salp2, calp2 = salp0, calp0 * csig2
+        let somg2, comg2 = salp0 * ssig2, csig2
+        let E = MathLib.copySign(1.0, salp0)
+        let omg12 = Math.Atan2(somg2 * comg1 - comg2 * somg1, comg2 * comg1 + somg2 * somg1)
+        let C3a = Array.create  GeodesicCoefficients.nC3 0.0
+        //let lam12 = omg12 + A3c * sig12 + (MathLib.sinCosSeries(true, ssig2, csig2, C3a, GeodesicCoefficients.nC3 - 1) - _B31))
+        omg12 |> ignore
+
 //   \brief %Geodesic calculations
 //   
 //   The shortest path between two points on a ellipsoid at (\e lat1, \e lon1)
@@ -289,7 +376,7 @@ open Analytics
 //   
 //   <a href="GeodSolve.1.html">GeodSolve</a> is a command-line utility
 //   providing access to the functionality of Geodesic and GeodesicLine.
-type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
+and Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
  
     let tiny = sqrt MathLib.minFloat
     let tol0 = MathLib.epsilon
@@ -921,7 +1008,17 @@ type Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
 
     static member WGS84 = Geodesic(Constants.WGS84_a, Constants.WGS84_f)
 
-    member __.Distance (location1 : GeodesicLocation) (location2 : GeodesicLocation) =
-        let mutable t, tg, tm, s12, a = 0.0, 0.0<deg>, 0.0<m>, 0.0<m>, 0.0<m^2>
-        let s = GenInverse (location1, location2) (int Mask.Distance) &s12 &tg &tg &tm &t &t &a
+    member val internal SemiMajorAxis = a
+    member val internal FlatteningRatio = f
+    member val internal Parameters: float<m> * float * float = b, f1, ep2
+    member val internal Tiny = tiny
+    member __.Distance location1 location2 =
+        let mutable t, azi1, azi2, tm, s12, a = 0.0, 0.0<deg>, 0.0<deg>, 0.0<m>, 0.0<m>, 0.0<m^2>
+        let _ = GenInverse (location1, location2) (int Mask.Distance) &s12 &azi1 &azi2 &tm &t &t &a
         s12
+    member __.Azimuths location1 location2 =
+        let mutable t, azi1, azi2, tm, s12, a = 0.0, 0.0<deg>, 0.0<deg>, 0.0<m>, 0.0<m>, 0.0<m^2>
+        let _ = GenInverse (location1, location2) (int Mask.Distance) &s12 &azi1 &azi2 &tm &t &t &a
+        azi1, azi2
+    member __.Location (location: GeodesicLocation) (azimuth: float<deg>) (distance: float<m>) =
+        0
