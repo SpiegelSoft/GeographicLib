@@ -54,7 +54,7 @@ module internal GeodesicCoefficients =
                 |]
             | 4 ->
                 [|
-                    -375.0; -704.0; -1792.0; -12288.0; 0.0; 16384.0 // (eps+1)*A2-1, polynomial in eps2 of order 4
+                    -375.0; -704.0; -1792.0; -12288.0; 0.0; 16384.0 // (eps+1)*A2-1: polynomial in eps2 of order 4
                 |]
             | _ -> raise <| new ArgumentException()
 
@@ -447,6 +447,62 @@ module internal GeodesicCoefficients =
                 429.0; 114688.0; // C3[7]: coeff of eps^7 -- polynomial in n of order 0
             |]
         | _ -> raise <| new ArgumentException()
+    
+    let C1pCoeff = 
+        match GeodesicOrder with
+        | 3 ->
+            [|
+                -9.0; 16.0; 32.0; // C1p[1]/eps^1: polynomial in eps2 of order 1
+                5.0; 16.0; // C1p[2]/eps^2: polynomial in eps2 of order 0
+                29.0; 96.0 // C1p[3]/eps^3: polynomial in eps2 of order 0
+            |]
+        | 4 ->
+            [|
+                -9.0; 16.0; 32.0; // C1p[1]/eps^1: polynomial in eps2 of order 1
+                -37.0; 30.0; 96.0; // C1p[2]/eps^2: polynomial in eps2 of order 1
+                29.0; 96.0; // C1p[3]/eps^3: polynomial in eps2 of order 0
+                539.0; 1536.0; // C1p[4]/eps^4: polynomial in eps2 of order 0
+            |]
+        | 5 ->
+            [|
+                205.0; -432.0; 768.0; 1536.0; // C1p[1]/eps^1: polynomial in eps2 of order 2
+                -37.0; 30.0; 96.0; // C1p[2]/eps^2: polynomial in eps2 of order 1
+                -225.0; 116.0; 384.0; // C1p[3]/eps^3: polynomial in eps2 of order 1
+                539.0; 1536.0; // C1p[4]/eps^4: polynomial in eps2 of order 0
+                3467.0; 7680.0; // C1p[5]/eps^5: polynomial in eps2 of order 0
+            |]
+        | 6 ->
+            [|
+                205.0; -432.0; 768.0; 1536.0; // C1p[1]/eps^1: polynomial in eps2 of order 2
+                4005.0; -4736.0; 3840.0; 12288.0; // C1p[2]/eps^2: polynomial in eps2 of order 2
+                -225.0; 116.0; 384.0; // C1p[3]/eps^3: polynomial in eps2 of order 1
+                -7173.0; 2695.0; 7680.0; // C1p[4]/eps^4: polynomial in eps2 of order 1
+                3467.0; 7680.0; // C1p[5]/eps^5: polynomial in eps2 of order 0
+                38081.0; 61440.0; // C1p[6]/eps^6: polynomial in eps2 of order 0
+            |]
+        | 7 ->
+            [|
+                -4879.0; 9840.0; -20736.0; 36864.0; 73728.0; // C1p[1]/eps^1: polynomial in eps2 of order 3
+                4005.0; -4736.0; 3840.0; 12288.0; // C1p[2]/eps^2: polynomial in eps2 of order 2
+                8703.0; -7200.0; 3712.0; 12288.0; // C1p[3]/eps^3: polynomial in eps2 of order 2
+                -7173.0; 2695.0; 7680.0; // C1p[4]/eps^4: polynomial in eps2 of order 1
+                -141115.0; 41604.0; 92160.0; // C1p[5]/eps^5: polynomial in eps2 of order 1
+                38081.0; 61440.0; // C1p[6]/eps^6: polynomial in eps2 of order 0
+                459485.0; 516096.0 // C1p[7]/eps^7: polynomial in eps2 of order 0
+            |]
+        | 8 ->
+            [|
+                -4879.0; 9840.0; -20736.0; 36864.0; 73728.0; // C1p[1]/eps^1: polynomial in eps2 of order 3
+                -86171.0; 120150.0; -142080.0; 115200.0; 368640.0; // C1p[2]/eps^2: polynomial in eps2 of order 3
+                8703.0; -7200.0; 3712.0; 12288.0; // C1p[3]/eps^3: polynomial in eps2 of order 2
+                1082857.0; -688608.0; 258720.0; 737280.0; // C1p[4]/eps^4: polynomial in eps2 of order 2
+                -141115.0; 41604.0; 92160.0; // C1p[5]/eps^5: polynomial in eps2 of order 1
+                -2200311.0; 533134.0; 860160.0; // C1p[6]/eps^6: polynomial in eps2 of order 1
+                459485.0; 516096.0; // C1p[7]/eps^7: polynomial in eps2 of order 0
+                109167851.0; 82575360.0 // C1p[8]/eps^8: polynomial in eps2 of order 0
+            |]
+       
+        | _ -> raise <| new ArgumentException()
 
     let A3Coeff =
         match GeodesicOrder with
@@ -502,3 +558,13 @@ module internal GeodesicCoefficients =
                 1.0; 1.0 // A3 coeff of eps^0
             |]
         | _ -> raise <| new ArgumentException()
+
+    let C1pFourier eps (Ca : float[]) =
+        let eps2 = eps * eps
+        let mutable d = eps
+        let mutable o = 0
+        for l in [1..nC1p] do
+            let m = (nC1p - l) / 2 // order of polynomial in eps^2
+            Ca.[l] <- d * MathLib.polyval(m, C1pCoeff.[o..], eps2) / C1pCoeff.[o + m + 1]
+            o <- o + m + 2
+            d <- d * eps

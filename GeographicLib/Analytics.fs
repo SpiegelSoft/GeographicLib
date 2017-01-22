@@ -68,111 +68,6 @@ module internal Analytics =
             c.[l] <- mult * MathLib.polyval(m, (C3x n).[o..], eps)
             o <- o + m + 1
 
-    type EllipticFunction(k2 : float, ?alpha2 : float, ?kp2 : float, ?alphap2 : float) =
-        let alpha2 = defaultArg alpha2 0.0
-        let kp2 = defaultArg kp2 1.0 - k2
-        let alphap2 = defaultArg alphap2 1.0 - alpha2
-
-        let RF(x, y) =
-            let tolRG0 = 2.7 * sqrt(MathLib.epsilon * 0.01)
-            let (xn, yn) = (sqrt x, sqrt y)
-            let mutable (xn, yn) = (max xn yn, min xn yn)
-            while abs(xn-yn) > tolRG0 * xn do
-                let t = (xn + yn) / 2.0
-                yn <- sqrt (xn * yn)
-                xn <- t
-            Math.PI / (xn + yn)
-
-        let RG(x, y) =
-            let tolRG0 = 2.7 * sqrt(MathLib.epsilon * 0.01)
-            let x0 = sqrt(max x y)
-            let y0 = sqrt(min x y)
-            let mutable xn = x0
-            let mutable yn = y0
-            let mutable s = 0.0
-            let mutable mul = 0.25
-            while abs(xn - yn) > tolRG0 * xn do
-                let mutable t = (xn + yn) / 2.0
-                yn <- sqrt(xn * yn)
-                xn <- t
-                mul <- 2.0 * mul
-                t <- xn - yn
-                s <- s + mul * t * t
-            (MathLib.sq( (x0 + y0) / 2.0 ) - s) * Math.PI / (2.0 * (xn + yn))
-
-        let RD(x, y, z) =
-            let tolRD = Math.Pow(0.2 * MathLib.epsilon * 0.01, 1.0 / 8.0)
-            let A0 = (x + y + 3.0*z) / 5.0
-            let mutable An = A0
-            let Q = max(max (abs(A0-x)) (abs(A0-y))) (abs(A0-z)) / tolRD
-            let mutable x0 = x
-            let mutable y0 = y
-            let mutable z0 = z
-            let mutable mul = 1.0
-            let mutable s = 0.0
-            while Q >= mul * abs(An) do
-                let lam = sqrt(x0)*sqrt(y0) + sqrt(y0)*sqrt(z0) + sqrt(z0)*sqrt(x0)
-                s <- s + 1.0/(mul * sqrt(z0) * (z0 + lam))
-                An <- (An + lam)/4.0
-                x0 <- (x0 + lam)/4.0
-                y0 <- (y0 + lam)/4.0
-                z0 <- (z0 + lam)/4.0
-                mul <- mul * 4.0
-
-            let X = (A0 - x) / (mul * An)
-            let Y = (A0 - y) / (mul * An)
-            let Z = -(X + Y) / 3.0
-            let E2 = X*Y - 6.0*Z*Z
-            let E3 = (3.0*X*Y - 8.0*Z*Z)*Z
-            let E4 = 3.0 * (X*Y - Z*Z) * Z*Z
-            let E5 = X*Y*Z*Z*Z
-            // http://dlmf.nist.gov/19.36.E2
-            // Polynomial is
-            // (1 - 3*E2/14 + E3/6 + 9*E2^2/88 - 3*E4/22 - 9*E2*E3/52 + 3*E5/26
-            //    - E2^3/16 + 3*E3^2/40 + 3*E2*E4/20 + 45*E2^2*E3/272
-            //    - 9*(E3*E4+E2*E5)/68)
-            ((471240.0 - 540540.0 * E2) * E5 + (612612.0 * E2 - 540540.0 * E3 - 556920.0) * E4 +
-                E3 * (306306.0 * E3 + E2 * (675675.0 * E2 - 706860.0) + 680680.0) +
-                E2 * ((417690.0 - 255255.0 * E2) * E2 - 875160.0) + 4084080.0) / (4084080.0 * mul * An * sqrt(An)) + 3.0 * s
-
-        let eps = k2 / MathLib.sq(sqrt(kp2) + 1.0)
-        let (Kc, Ec, Dc) = if k2 = 0.0 then (MathLib.piOver2, MathLib.piOver2, MathLib.piOver2 / 2.0) else ((if kp2 = 0.0 then Double.PositiveInfinity else RF(kp2, 1.0)), (if kp2 = 0.0 then 1.0 else 2.0 * RG(kp2, 1.0)), (if kp2 = 0.0 then Double.PositiveInfinity else RD(0.0, kp2, 1.0) / 3.0)) 
-
-    type AlbersEqualArea(semiMajorAxis : float<m>, flattening : LowToHighRatio, sinLat1 : float, cosLat1 : float, sinLat2 : float, cosLat2 : float, k1 : float) =
-        let a = semiMajorAxis
-        let f = flattening.Ratio
-        let fm = 1.0 - f
-        let e2 = f * (2.0 - f)
-        let e = e2 |> abs |> sqrt
-        let atanhee(x) = if f > 0.0 then MathLib.atanh(e * x) / e else if f < 0.0 then (atan2 (e * abs x) (if x < 0.0 then -1.0 else 1.0))/e else x
-        let e2m = 1.0 - e2
-        let qZ = 1.0 + e2m * atanhee(1.0)
-        let qx = qZ / (2.0 * e2m)
-
-    type TransverseMercator(semiMajorAxis : float<m>, flattening : LowToHighRatio, scale : float) =
-        let a = semiMajorAxis
-        let f = flattening.Ratio
-        let e2 = f * (2.0 - f)
-        let es = (if f < 0.0 then -1.0 else 1.0) * sqrt(abs(e2))
-        let e2m = 1.0 - e2
-        let c =  sqrt(e2m) * exp(MathLib.eatanhe(1.0, es)) 
-        let n = f / (2.0  - f)
-
-    type Ellipsoid(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
-        let a = semiMajorAxis
-        let f = flattening.Ratio
-        let f1 = 1.0 - f
-        let f12 = sqrt f1
-        let e2 = f * (2.0 - f)
-        let es = (if f < 0.0 then -1.0 else 1.0) * sqrt(abs(e2))
-        let e12 = e2 / (1.0 - e2)
-        let n = f / (2.0  - f)
-        let b = a * f1
-        let tm = TransverseMercator(a, flattening, 1.0)
-        let e11 = EllipticFunction(-e12)
-        let au = AlbersEqualArea(a, flattening, 0.0, 1.0, 0.0, 1.0, 1.0)
-        static member WGS84 = Ellipsoid(Constants.WGS84_a, Constants.WGS84_f)
-
     [<System.FlagsAttribute>]
     type internal PermissionFlags = 
         CapNone         = 0b0000000000000000
@@ -204,14 +99,13 @@ type internal GeodesicLine(geodesic: Geodesic, location: GeodesicLocation, azimu
     let lat1, lon1 = location.Latitude, location.Longitude
     let azi1 = MathLib.angNormalise azimuth
     let salp1, calp1 = azi1 |> MathLib.angRound |> MathLib.sincos
-    let a, f = geodesic.SemiMajorAxis, geodesic.FlatteningRatio
+    let f = geodesic.FlatteningRatio
     let b, f1, ep2 = geodesic.Parameters
     let mutable sbet1, cbet1 = lat1 |> MathLib.angRound |> MathLib.sincos
     do 
         sbet1 <- sbet1 * f1
         MathLib.norm &sbet1 &cbet1
-        cbet1 <- Math.Max(tiny, cbet1)
-    let dn1 = sqrt(1.0 + ep2 * (sbet1 * sbet1))
+        cbet1 <- max tiny cbet1
     let salp0, calp0 = salp1 * cbet1, MathLib.hypot(calp1, salp1 * sbet1)
     // Evaluate sig with tan(bet1) = tan(sig1) * cos(alp1).
     // sig = 0 is nearest northward crossing of equator.
@@ -229,17 +123,12 @@ type internal GeodesicLine(geodesic: Geodesic, location: GeodesicLocation, azimu
     let k2 = calp0 * calp0 * ep2
     let eps = k2 / (2.0 * (1.0 + sqrt(1.0 + k2)) + k2)
     let A1m1 = GeodesicCoefficients.A1m1f(eps)
-    let Ca = Array.create GeodesicCoefficients.nC 0.0
-    do GeodesicCoefficients.C1Fourier eps Ca
     let C1a = Array.create(GeodesicCoefficients.nC1 + 1) 0.0
+    do GeodesicCoefficients.C1Fourier eps C1a
     let B11 = MathLib.sinCosSeries(true, ssig1, csig1, C1a, GeodesicCoefficients.nC1)
-    let s, c = Math.Sin(B11), Math.Cos(B11)
+    let s, c = sin B11, cos B11
     let stau1 = ssig1 * c + csig1 * s
     let ctau1 = csig1 * c - ssig1 * s
-    let A2m1 = GeodesicCoefficients.A2m1f(eps)
-    let C2a = Array.create (GeodesicCoefficients.nC2 + 1) 0.0
-    do GeodesicCoefficients.C2Fourier eps C2a
-    let B21 = MathLib.sinCosSeries(true, ssig1, csig1, C2a, GeodesicCoefficients.nC2) 
     let C3a = Array.create GeodesicCoefficients.nC3 0.0
     let n = f / (2.0 - f)
     do C3f n eps C3a
@@ -249,9 +138,10 @@ type internal GeodesicLine(geodesic: Geodesic, location: GeodesicLocation, azimu
         let tau12 = distance / (b * (1.0 + A1m1))
         let s, c = sin(tau12), cos(tau12)
         let C1pa = Array.create(GeodesicCoefficients.nC1p + 1) 0.0
-        let mutable B12 = MathLib.sinCosSeries(true, stau1 * c + ctau1 * s, ctau1 * c - stau1 * s, C1pa, GeodesicCoefficients.nC1p)
+        GeodesicCoefficients.C1pFourier eps C1pa
+        let mutable B12 = - MathLib.sinCosSeries(true, stau1 * c + ctau1 * s, ctau1 * c - stau1 * s, C1pa, GeodesicCoefficients.nC1p)
         let mutable sig12 = tau12 - (B12 - B11)
-        let mutable ssig12, csig12 = Math.Sin(sig12), Math.Cos(sig12)
+        let mutable ssig12, csig12 = sin sig12, cos sig12
         if abs f > 0.01 then
             // Reverted distance series is inaccurate for |f| > 1/100, so correct
             // sig12 with 1 Newton iteration.  The following table shows the
@@ -282,7 +172,6 @@ type internal GeodesicLine(geodesic: Geodesic, location: GeodesicLocation, azimu
             ssig12 <- sin(sig12); csig12 <- cos(sig12)
         let ssig2 = ssig1 * csig12 + csig1 * ssig12
         let mutable csig2 = csig1 * csig12 - ssig1 * ssig12
-        let dn2 = sqrt(1.0 + k2 * ssig2 * ssig2)
         let sbet2 = calp0 * ssig2
         let mutable cbet2 = MathLib.hypot(salp0, calp0 * csig2)
         if cbet2 = 0.0 then 
@@ -290,11 +179,10 @@ type internal GeodesicLine(geodesic: Geodesic, location: GeodesicLocation, azimu
         let salp2, calp2 = salp0, calp0 * csig2
         let somg2, comg2 = salp0 * ssig2, csig2
         let E = MathLib.copySign(1.0, salp0)
-        let omg12 = Math.Atan2(somg2 * comg1 - comg2 * somg1, comg2 * comg1 + somg2 * somg1)
-        let C3a = Array.create GeodesicCoefficients.nC3 0.0
+        let omg12 = E * (sig12 - ((atan2 ssig2 csig2) - (atan2 ssig1 csig1)) + (atan2(E * somg2) (comg2) - atan2(E * somg1) (comg1)))
         let lam12 = omg12 + A3c * (sig12 + (MathLib.sinCosSeries(true, ssig2, csig2, C3a, GeodesicCoefficients.nC3 - 1) - B31))
         let lon12 = lam12 * 1.0<rad> |> UnitConversion.degrees
-        lon2 <- MathLib.angNormalise(lon1) + MathLib.angNormalise(lon12) |> MathLib.angNormalise
+        lon2 <- lon1 + lon12
         lat2 <- 1.0<rad> * atan2 sbet2 (f1 * cbet2) |> UnitConversion.degrees
         azi2 <- 1.0<rad> * atan2 salp2 calp2 |> UnitConversion.degrees
 
@@ -1035,3 +923,4 @@ and Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
         let geodesicLine = new GeodesicLine(this, location, azimuth)
         let mutable lat2, lon2, azi2 = 0.0<deg>, 0.0<deg>, 0.0<deg>
         geodesicLine.Position(distance, &lat2, &lon2, &azi2)
+        new GeodesicLocation(lat2, lon2)
