@@ -907,7 +907,6 @@ and Geodesic(semiMajorAxis : float<m>, flattening : LowToHighRatio) =
 
     static member WGS84 = Geodesic(Constants.WGS84_a, Constants.WGS84_f)
 
-    member val internal SemiMajorAxis = a
     member val internal FlatteningRatio = f
     member val internal Parameters: float<m> * float * float = b, f1, ep2
     member val internal Tiny = tiny
